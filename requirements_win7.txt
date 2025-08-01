@@ -1,0 +1,14 @@
+# DentisteDB - Windows 7 Compatible Dependencies
+# These versions are tested and compatible with Windows 7
+
+# GUI Framework (Windows 7 compatible)
+PyQt5==5.15.2
+
+# Database ORM (Windows 7 compatible)
+SQLAlchemy==1.4.46
+
+# Password Hashing (Windows 7 compatible)
+Werkzeug==2.3.7
+
+# Note: These are the MAXIMUM versions that support Windows 7
+# Newer versions require Windows 8.1 or later

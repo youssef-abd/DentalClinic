@@ -1,0 +1,21 @@
+# PyQt Dental Cabinet Application Requirements
+# Pure PyQt desktop application - no web dependencies
+
+# Core PyQt5 for desktop UI
+PyQt5==5.15.9
+
+# Database and ORM
+SQLAlchemy==2.0.23
+
+# Password hashing
+Werkzeug==2.3.7
+
+# For packaging the desktop application
+pyinstaller==5.13.2
+
+# Optional: For enhanced functionality
+# Pillow==10.1.0  # For advanced image processing if needed
+# reportlab==4.0.7  # For PDF report generation if needed
+
+# Invoice generation
+python-docx==0.8.11
