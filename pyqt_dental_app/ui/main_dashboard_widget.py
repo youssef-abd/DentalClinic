@@ -9,7 +9,6 @@ from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import QFont
 
 try:
-    from .dashboard_widget import DashboardWidget
     from .financial_dashboard_widget import FinancialDashboardWidget
     from .patient_dashboard_widget import PatientDashboardWidget
     from ..services.dashboard_service_real import RealDashboardService
@@ -218,8 +217,6 @@ class MainDashboardWidget(QWidget):
         
         # Create dashboard instances
         try:
-
-            
             # Financial Dashboard
             self.financial_dashboard = FinancialDashboardWidget(
                 dashboard_service=self.dashboard_service
@@ -234,7 +231,6 @@ class MainDashboardWidget(QWidget):
             
             # Store references for easy access
             self.dashboards = [
-
                 self.financial_dashboard,
                 self.patient_dashboard
             ]

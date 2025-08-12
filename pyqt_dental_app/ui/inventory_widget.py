@@ -126,6 +126,22 @@ class InventoryWidget(QWidget):
             }
         """)
         
+        self.create_category_btn = QPushButton("📂 Nouvelle Catégorie")
+        self.create_category_btn.clicked.connect(self.show_create_category_dialog)
+        self.create_category_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #2196F3;
+                color: white;
+                border: none;
+                border-radius: 6px;
+                padding: 8px 16px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #1976D2;
+            }
+        """)
+        
         self.edit_item_btn = QPushButton("✏️ Modifier")
         self.edit_item_btn.clicked.connect(self.edit_selected_item)
         self.edit_item_btn.setEnabled(False)
@@ -135,6 +151,7 @@ class InventoryWidget(QWidget):
         self.delete_item_btn.setEnabled(False)
         
         search_layout.addWidget(self.add_item_btn)
+        search_layout.addWidget(self.create_category_btn)
         search_layout.addWidget(self.edit_item_btn)
         search_layout.addWidget(self.delete_item_btn)
         
@@ -488,6 +505,109 @@ class InventoryWidget(QWidget):
         dialog = InventoryItemForm(self.inventory_service, parent=self)
         dialog.item_saved.connect(self.on_item_saved)
         dialog.exec_()
+    
+    def show_create_category_dialog(self):
+        """Show dialog to create new category"""
+        from PyQt5.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QTextEdit, QPushButton, QMessageBox
+        
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Nouvelle Catégorie")
+        dialog.setModal(True)
+        dialog.setFixedSize(400, 300)
+        
+        layout = QVBoxLayout(dialog)
+        
+        # Title
+        title = QLabel("Créer une nouvelle catégorie")
+        title.setStyleSheet("font-size: 16px; font-weight: bold; color: #2E7D32; margin-bottom: 20px;")
+        layout.addWidget(title)
+        
+        # Name field
+        name_layout = QHBoxLayout()
+        name_label = QLabel("Nom:")
+        name_label.setMinimumWidth(80)
+        self.category_name_input = QLineEdit()
+        self.category_name_input.setPlaceholderText("Nom de la catégorie")
+        name_layout.addWidget(name_label)
+        name_layout.addWidget(self.category_name_input)
+        layout.addLayout(name_layout)
+        
+        # Description field
+        desc_layout = QVBoxLayout()
+        desc_label = QLabel("Description:")
+        self.category_desc_input = QTextEdit()
+        self.category_desc_input.setPlaceholderText("Description de la catégorie (optionnel)")
+        self.category_desc_input.setMaximumHeight(100)
+        desc_layout.addWidget(desc_label)
+        desc_layout.addWidget(self.category_desc_input)
+        layout.addLayout(desc_layout)
+        
+        # Buttons
+        button_layout = QHBoxLayout()
+        button_layout.addStretch()
+        
+        cancel_btn = QPushButton("Annuler")
+        cancel_btn.clicked.connect(dialog.reject)
+        cancel_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #757575;
+                color: white;
+                border: none;
+                border-radius: 5px;
+                padding: 8px 16px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #616161;
+            }
+        """)
+        
+        save_btn = QPushButton("Enregistrer")
+        save_btn.clicked.connect(self.save_category)
+        save_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #4CAF50;
+                color: white;
+                border: none;
+                border-radius: 5px;
+                padding: 8px 16px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #45a049;
+            }
+        """)
+        
+        button_layout.addWidget(cancel_btn)
+        button_layout.addWidget(save_btn)
+        layout.addLayout(button_layout)
+        
+        # Store dialog reference
+        self.category_dialog = dialog
+        dialog.exec_()
+    
+    def save_category(self):
+        """Save the new category"""
+        name = self.category_name_input.text().strip()
+        description = self.category_desc_input.toPlainText().strip()
+        
+        if not name:
+            QMessageBox.warning(self, "Erreur", "Le nom de la catégorie est obligatoire")
+            return
+        
+        try:
+            # Create the category using the inventory service
+            category_id = self.inventory_service.create_category(name, description)
+            
+            if category_id:
+                QMessageBox.information(self, "Succès", f"Catégorie '{name}' créée avec succès")
+                self.category_dialog.accept()
+                self.load_categories()  # Refresh the category filter
+            else:
+                QMessageBox.critical(self, "Erreur", "Erreur lors de la création de la catégorie")
+                
+        except Exception as e:
+            QMessageBox.critical(self, "Erreur", f"Erreur lors de la création de la catégorie: {str(e)}")
     
     def edit_selected_item(self):
         """Edit the selected item"""

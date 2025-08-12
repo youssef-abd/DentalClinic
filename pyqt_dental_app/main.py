@@ -75,9 +75,17 @@ class DentalApplication(QObject):
             # Setup connections
             self.setup_connections()
             
+            # Run Supabase sync on startup
+            try:
+                from .sync_to_supabase import run_sync
+                # run_sync() # Commented out to prevent automatic sync on startup
+                print("Initial Supabase synchronization completed.")
+            except Exception as e:
+                print(f"Warning: Could not perform initial sync: {str(e)}")
+            
         except Exception as e:
             QMessageBox.critical(None, "Erreur d'initialisation", 
-                               f"Erreur lors de l'initialisation de l'application:\n{str(e)}")
+                           f"Erreur lors de l'initialisation de l'application:\n{str(e)}")
             sys.exit(1)
     
     def init_database(self):
@@ -207,6 +215,7 @@ class DentalApplication(QObject):
         self.patient_list_widget.patient_selected.connect(self.show_patient_detail)
         self.patient_list_widget.edit_patient_requested.connect(self.edit_patient)
         self.patient_list_widget.add_visit_requested.connect(self.add_visit_for_patient)
+        self.patient_list_widget.add_patient_requested.connect(self.show_add_patient)
         
         # Patient form widget connections
         self.patient_form_widget.patient_saved.connect(self.on_patient_saved)
@@ -248,6 +257,11 @@ class DentalApplication(QObject):
         """Show patient edit form"""
         self.main_window.show_view(self.main_window.patient_form_index)
         self.patient_form_widget.load_patient(patient_id)
+    
+    def show_add_patient(self):
+        """Show add patient form"""
+        self.main_window.show_view(self.main_window.patient_form_index)
+        self.patient_form_widget.clear_form()
     
     def add_visit_for_patient(self, patient_id):
         """Show add visit form for specific patient"""

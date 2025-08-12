@@ -6,7 +6,8 @@ Replaces unpaid_balances.html template with native PyQt interface
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QTableWidget, 
                             QTableWidgetItem, QPushButton, QLabel, QMessageBox,
                             QFrame, QGroupBox, QHeaderView, QAbstractItemView, 
-                            QMenu, QComboBox, QDateEdit, QLineEdit)
+                            QMenu, QComboBox, QDateEdit, QLineEdit, QSizePolicy,
+                            QScrollArea)
 from PyQt5.QtCore import Qt, pyqtSignal, QDate
 from PyQt5.QtGui import QFont, QColor, QBrush
 from datetime import datetime, date, timedelta
@@ -29,8 +30,47 @@ class UnpaidBalancesWidget(QWidget):
         
     def init_ui(self):
         """Initialize the user interface"""
-        layout = QVBoxLayout(self)
+        # Create main layout
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(0)
+        
+        # Create scroll area
+        self.scroll_area = QScrollArea()
+        self.scroll_area.setWidgetResizable(True)
+        self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        self.scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        self.scroll_area.setStyleSheet("""
+            QScrollArea {
+                border: none;
+                background-color: #f5f5f5;
+            }
+            QScrollBar:vertical {
+                background-color: #f0f0f0;
+                width: 12px;
+                border-radius: 6px;
+            }
+            QScrollBar::handle:vertical {
+                background-color: #c0c0c0;
+                border-radius: 6px;
+                min-height: 20px;
+            }
+            QScrollBar::handle:vertical:hover {
+                background-color: #a0a0a0;
+            }
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+                height: 0px;
+            }
+        """)
+        
+        # Create content widget
+        self.content_widget = QWidget()
+        self.content_widget.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
+        
+        # Create content layout
+        layout = QVBoxLayout(self.content_widget)
         layout.setSpacing(15)
+        layout.setContentsMargins(20, 20, 20, 20)
         
         # Header section
         header_frame = QFrame()
@@ -185,7 +225,26 @@ class UnpaidBalancesWidget(QWidget):
         button_layout.addWidget(self.total_label)
         
         header_layout.addLayout(button_layout)
-        layout.addWidget(header_frame)
+        layout.addWidget(header_frame, 0)  # Header frame gets no stretch
+        
+        # Summary section - MOVED TO TOP
+        summary_frame = QFrame()
+        summary_frame.setStyleSheet("""
+            QFrame {
+                background-color: #ffebee;
+                border: 1px solid #f44336;
+                border-radius: 5px;
+                padding: 15px;
+            }
+        """)
+        summary_layout = QHBoxLayout(summary_frame)
+        
+        self.summary_stats = QLabel()
+        self.summary_stats.setStyleSheet("font-size: 14px; font-weight: bold; color: #f44336;")
+        summary_layout.addWidget(self.summary_stats)
+        summary_layout.addStretch()
+        
+        layout.addWidget(summary_frame, 0)  # Summary frame gets no stretch
         
         # Table section
         table_frame = QFrame()
@@ -197,7 +256,10 @@ class UnpaidBalancesWidget(QWidget):
                 padding: 10px;
             }
         """)
+        table_frame.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         table_layout = QVBoxLayout(table_frame)
+        table_layout.setContentsMargins(10, 10, 10, 10)
+        table_layout.setStretch(0, 1)  # Make table take all available space
         
         # Unpaid visits table
         self.table = QTableWidget()
@@ -216,8 +278,9 @@ class UnpaidBalancesWidget(QWidget):
                 selection-background-color: #ffebee;
             }
             QTableWidget::item {
-                padding: 8px;
+                padding: 12px 8px;
                 border-bottom: 1px solid #e0e0e0;
+                min-height: 20px;
             }
             QTableWidget::item:selected {
                 background-color: #ffebee;
@@ -226,14 +289,17 @@ class UnpaidBalancesWidget(QWidget):
             QHeaderView::section {
                 background-color: #f44336;
                 color: white;
-                padding: 10px;
+                padding: 20px 12px;
                 border: none;
                 font-weight: bold;
-                font-size: 12px;
+                font-size: 14px;
+                min-height: 35px;
+                text-align: center;
             }
             QHeaderView {
                 background-color: #f44336;
                 color: white;
+                min-height: 35px;
             }
         """)
         
@@ -242,22 +308,33 @@ class UnpaidBalancesWidget(QWidget):
         self.table.setAlternatingRowColors(True)
         self.table.verticalHeader().setVisible(False)
         
-        # Auto-resize columns
+        # Make table expand to fill available space - NO internal scrolling
+        self.table.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.table.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)  # Disable internal vertical scroll
+        self.table.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        
+        # Set row height for better visibility
+        self.table.verticalHeader().setDefaultSectionSize(50)
+        
+        # Set reasonable minimum height
+        self.table.setMinimumHeight(400)  # Increased minimum height for better visibility
+        
+        # Auto-resize columns with better visibility
         header = self.table.horizontalHeader()
         header.setSectionResizeMode(0, QHeaderView.Stretch)  # Patient
-        header.setSectionResizeMode(1, QHeaderView.ResizeToContents)  # Date
+        header.setSectionResizeMode(1, QHeaderView.Fixed)    # Date - Fixed width
         header.setSectionResizeMode(2, QHeaderView.Stretch)  # Acte
-        header.setSectionResizeMode(3, QHeaderView.ResizeToContents)  # Prix
-        header.setSectionResizeMode(4, QHeaderView.ResizeToContents)  # Payé
-        header.setSectionResizeMode(5, QHeaderView.Fixed)  # Reste - Fixed width for visibility
-        header.setSectionResizeMode(6, QHeaderView.ResizeToContents)  # Actions
+        header.setSectionResizeMode(3, QHeaderView.Fixed)    # Prix - Fixed width
+        header.setSectionResizeMode(4, QHeaderView.Fixed)    # Payé - Fixed width
+        header.setSectionResizeMode(5, QHeaderView.Fixed)    # Reste - Fixed width
+        header.setSectionResizeMode(6, QHeaderView.Fixed)    # Actions - Fixed width
         
         # Set minimum column widths to ensure visibility
-        self.table.setColumnWidth(1, 80)   # Date
-        self.table.setColumnWidth(3, 80)   # Prix
-        self.table.setColumnWidth(4, 80)   # Payé
-        self.table.setColumnWidth(5, 100)  # Reste - Fixed width for better visibility
-        self.table.setColumnWidth(6, 180)  # Actions - Increased for text buttons
+        self.table.setColumnWidth(1, 120)  # Date - Increased width
+        self.table.setColumnWidth(3, 120)  # Prix - Increased width
+        self.table.setColumnWidth(4, 120)  # Payé - Increased width
+        self.table.setColumnWidth(5, 140)  # Reste - Increased width for better visibility
+        self.table.setColumnWidth(6, 250)  # Actions - Increased width for better button layout
         
         # Table events
         self.table.cellDoubleClicked.connect(self.on_row_double_click)
@@ -265,26 +342,13 @@ class UnpaidBalancesWidget(QWidget):
         self.table.customContextMenuRequested.connect(self.show_context_menu)
         
         table_layout.addWidget(self.table)
-        layout.addWidget(table_frame)
+        layout.addWidget(table_frame, 1)  # Give table frame stretch factor of 1 to take remaining space
         
-        # Summary section
-        summary_frame = QFrame()
-        summary_frame.setStyleSheet("""
-            QFrame {
-                background-color: #ffebee;
-                border: 1px solid #f44336;
-                border-radius: 5px;
-                padding: 15px;
-            }
-        """)
-        summary_layout = QHBoxLayout(summary_frame)
+        # Set content widget to scroll area
+        self.scroll_area.setWidget(self.content_widget)
         
-        self.summary_stats = QLabel()
-        self.summary_stats.setStyleSheet("font-size: 14px; font-weight: bold; color: #f44336;")
-        summary_layout.addWidget(self.summary_stats)
-        summary_layout.addStretch()
-        
-        layout.addWidget(summary_frame)
+        # Add scroll area to main layout with stretch
+        main_layout.addWidget(self.scroll_area, 1)
     
     def load_unpaid_visits(self):
         """Load unpaid visits from database"""
@@ -349,63 +413,78 @@ class UnpaidBalancesWidget(QWidget):
             # Actions - Create a widget with buttons
             actions_widget = QWidget()
             actions_layout = QHBoxLayout(actions_widget)
-            actions_layout.setContentsMargins(2, 2, 2, 2)
-            actions_layout.setSpacing(5)
+            actions_layout.setContentsMargins(5, 3, 5, 3)
+            actions_layout.setSpacing(8)
             
             # View button
             view_btn = QPushButton("Voir")
-            view_btn.setToolTip("Voir les détails")
-            view_btn.setMaximumSize(50, 25)
+            view_btn.setToolTip("Voir les détails du patient")
+            view_btn.setFixedSize(70, 28)
             view_btn.clicked.connect(lambda checked, v=visit: self.view_patient(v.patient_id))
             view_btn.setStyleSheet("""
                 QPushButton {
                     background-color: #2196F3;
                     color: white;
                     border: none;
-                    border-radius: 3px;
-                    font-size: 9px;
+                    border-radius: 4px;
+                    font-size: 10px;
                     font-weight: bold;
+                    padding: 2px;
                 }
                 QPushButton:hover {
                     background-color: #1976D2;
+                    transform: scale(1.05);
+                }
+                QPushButton:pressed {
+                    background-color: #0D47A1;
                 }
             """)
             
             # Edit button
             edit_btn = QPushButton("Modifier")
             edit_btn.setToolTip("Modifier la visite")
-            edit_btn.setMaximumSize(60, 25)
+            edit_btn.setFixedSize(80, 28)
             edit_btn.clicked.connect(lambda checked, v=visit: self.edit_visit(v.id))
             edit_btn.setStyleSheet("""
                 QPushButton {
                     background-color: #FF9800;
                     color: white;
                     border: none;
-                    border-radius: 3px;
-                    font-size: 9px;
+                    border-radius: 4px;
+                    font-size: 10px;
                     font-weight: bold;
+                    padding: 2px;
                 }
                 QPushButton:hover {
                     background-color: #F57C00;
+                    transform: scale(1.05);
+                }
+                QPushButton:pressed {
+                    background-color: #E65100;
                 }
             """)
             
             # Pay button
             pay_btn = QPushButton("Payer")
             pay_btn.setToolTip("Marquer comme payé")
-            pay_btn.setMaximumSize(50, 25)
+            pay_btn.setFixedSize(70, 28)
             pay_btn.clicked.connect(lambda checked, v=visit: self.mark_as_paid(v.id))
             pay_btn.setStyleSheet("""
                 QPushButton {
                     background-color: #4CAF50;
                     color: white;
                     border: none;
-                    border-radius: 3px;
-                    font-size: 9px;
+                    border-radius: 4px;
+                    font-size: 10px;
                     font-weight: bold;
+                    padding: 2px;
                 }
                 QPushButton:hover {
                     background-color: #45a049;
+                    transform: scale(1.05);
+                }
+                QPushButton:pressed {
+                    background-color: #2E7D32;
                 }
             """)
             
@@ -627,3 +706,5 @@ class UnpaidBalancesWidget(QWidget):
     def edit_visit(self, visit_id):
         """Edit visit details"""
         self.visit_edit_requested.emit(visit_id)
+    
+

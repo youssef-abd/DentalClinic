@@ -4,7 +4,7 @@ Dialog for adding/editing expenses
 """
 
 from PyQt5.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QFormLayout,
-                            QLineEdit, QTextEdit, QComboBox, QDateEdit,
+                            QLineEdit, QTextEdit, QComboBox, QDateEdit, QScrollArea,
                             QDoubleSpinBox, QCheckBox, QPushButton, QLabel,
                             QFileDialog, QMessageBox, QFrame)
 from PyQt5.QtCore import Qt, QDate
@@ -32,7 +32,8 @@ class ExpenseFormDialog(QDialog):
         """Initialize the user interface"""
         title = "Modifier la Dépense" if self.is_edit_mode else "Nouvelle Dépense"
         self.setWindowTitle(title)
-        self.setFixedSize(500, 600)
+        self.setMinimumSize(520, 650)
+        self.resize(520, 650)
         
         layout = QVBoxLayout(self)
         
@@ -42,19 +43,25 @@ class ExpenseFormDialog(QDialog):
         header_label.setAlignment(Qt.AlignCenter)
         layout.addWidget(header_label)
         
+        # Scroll Area to ensure all fields are visible
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setStyleSheet("QScrollArea { border: none; background-color: transparent; }")
+        
         # Form
         form_frame = QFrame()
-        form_frame.setFrameStyle(QFrame.Box)
         form_frame.setStyleSheet("""
             QFrame {
                 background-color: #F9FAFB;
-                border: 1px solid #E5E7EB;
+                /* The border is removed as the scroll area provides the container */
                 border-radius: 8px;
                 padding: 15px;
             }
         """)
         
         form_layout = QFormLayout(form_frame)
+        form_layout.setSpacing(15)
+        form_layout.setLabelAlignment(Qt.AlignRight)
         
         # Date
         self.date_edit = QDateEdit()
@@ -69,10 +76,13 @@ class ExpenseFormDialog(QDialog):
         
         # Amount
         self.amount_spinbox = QDoubleSpinBox()
-        self.amount_spinbox.setRange(0.01, 999999.99)
-        self.amount_spinbox.setDecimals(2)
-        self.amount_spinbox.setSuffix(" MAD")
-        form_layout.addRow("Montant:", self.amount_spinbox)
+        self.amount_spinbox.setRange(1, 999999)
+        self.amount_spinbox.setDecimals(0)  # No decimals
+        self.amount_spinbox.setSuffix("")  # No suffix
+        self.amount_spinbox.setButtonSymbols(QDoubleSpinBox.NoButtons)  # Remove scroll buttons
+        # Prevent scroll wheel changes
+        self.amount_spinbox.wheelEvent = lambda event: None
+        form_layout.addRow("Montant (MAD):", self.amount_spinbox)
         
         # Category
         self.category_combo = QComboBox()
@@ -100,14 +110,18 @@ class ExpenseFormDialog(QDialog):
         
         # Tax amount
         self.tax_amount_spinbox = QDoubleSpinBox()
-        self.tax_amount_spinbox.setRange(0.00, 999999.99)
-        self.tax_amount_spinbox.setDecimals(2)
-        self.tax_amount_spinbox.setSuffix(" MAD")
-        form_layout.addRow("Montant TVA:", self.tax_amount_spinbox)
+        self.tax_amount_spinbox.setRange(0, 999999)
+        self.tax_amount_spinbox.setDecimals(0)  # No decimals
+        self.tax_amount_spinbox.setSuffix("")  # No suffix
+        self.tax_amount_spinbox.setButtonSymbols(QDoubleSpinBox.NoButtons)  # Remove scroll buttons
+        # Prevent scroll wheel changes
+        self.tax_amount_spinbox.wheelEvent = lambda event: None
+        form_layout.addRow("Montant TVA (MAD):", self.tax_amount_spinbox)
         
         # Receipt file
         receipt_layout = QHBoxLayout()
         self.receipt_label = QLabel("Aucun fichier sélectionné")
+        self.receipt_label.setWordWrap(True)
         self.receipt_label.setStyleSheet("color: #6B7280;")
         receipt_btn = QPushButton("📎 Joindre Reçu")
         receipt_btn.clicked.connect(self.select_receipt_file)
@@ -121,7 +135,9 @@ class ExpenseFormDialog(QDialog):
         self.notes_edit.setPlaceholderText("Notes additionnelles...")
         form_layout.addRow("Notes:", self.notes_edit)
         
-        layout.addWidget(form_frame)
+        # Add the form frame to the scroll area
+        scroll_area.setWidget(form_frame)
+        layout.addWidget(scroll_area)
         
         # Buttons
         buttons_layout = QHBoxLayout()

@@ -18,6 +18,7 @@ class PatientListWidget(QWidget):
     patient_selected = pyqtSignal(int)  # Emits patient ID
     edit_patient_requested = pyqtSignal(int)  # Emits patient ID
     add_visit_requested = pyqtSignal(int)  # Emits patient ID
+    add_patient_requested = pyqtSignal()  # Emits when add patient button is clicked
     
     def __init__(self, patient_service):
         super().__init__()
@@ -115,25 +116,7 @@ class PatientListWidget(QWidget):
             }
         """)
         
-        self.refresh_btn = QPushButton("🔄 Actualiser")
-        self.refresh_btn.clicked.connect(self.refresh_patients)
-        self.refresh_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #2196F3;
-                color: white;
-                border: none;
-                padding: 10px 20px;
-                border-radius: 5px;
-                font-weight: bold;
-                font-size: 14px;
-            }
-            QPushButton:hover {
-                background-color: #1976D2;
-            }
-        """)
-        
         button_layout.addWidget(self.add_patient_btn)
-        button_layout.addWidget(self.refresh_btn)
         button_layout.addStretch()
         
         # Patient count label
@@ -457,8 +440,8 @@ class PatientListWidget(QWidget):
     
     def add_patient(self):
         """Add new patient"""
-        # This will be handled by the main window
-        pass
+        # Emit signal to main window to show add patient form
+        self.add_patient_requested.emit()
     
     def delete_patient(self):
         """Delete selected patient"""

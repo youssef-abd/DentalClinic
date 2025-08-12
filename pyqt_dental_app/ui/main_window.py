@@ -10,6 +10,9 @@ from PyQt5.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
 from .dialogs.change_password_dialog import ChangePasswordDialog
 from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtGui import QIcon, QFont, QPixmap
+# Add these imports after the existing ones
+from ..sync_service import sync_service
+from .sync_ui_components import SyncStatusWidget
 import sys
 import os
 
@@ -32,7 +35,9 @@ class MainWindow(QMainWindow):
         self.create_menu_bar()
         self.create_toolbar()
         self.create_status_bar()
-        
+        self.start_sync_service()
+        self.add_sync_status_widget()
+    
     def init_ui(self):
         """Initialize the main user interface"""
         self.setWindowTitle("DentisteDB - Gestion de Cabinet Dentaire")
@@ -187,6 +192,8 @@ class MainWindow(QMainWindow):
         low_stock_action.triggered.connect(self.show_low_stock)
         inventory_menu.addAction(low_stock_action)
         
+        # In the create_menu_bar method, add this to the tools_menu section:
+        
         # Tools menu
         tools_menu = menubar.addMenu('Outils')
         
@@ -194,6 +201,12 @@ class MainWindow(QMainWindow):
         search_action.setShortcut('Ctrl+F')
         search_action.triggered.connect(self.focus_search)
         tools_menu.addAction(search_action)
+        # Add this in the tools_menu section of create_menu_bar
+        # Add sync action
+        sync_action = QAction('🔄 Synchroniser avec Supabase', self)
+        sync_action.setShortcut('Ctrl+S')
+        sync_action.triggered.connect(self.sync_to_supabase)
+        tools_menu.addAction(sync_action)
         
         # Help menu
         help_menu = menubar.addMenu('Aide')
@@ -270,6 +283,16 @@ class MainWindow(QMainWindow):
         inventory_btn.setToolTip('Gestion de l\'inventaire')
         inventory_btn.clicked.connect(self.show_inventory)
         toolbar.addWidget(inventory_btn)
+        
+        # Add this in the create_toolbar method, before the spacer
+        # Separator
+        toolbar.addSeparator()
+        
+        # Sync button
+        sync_btn = QPushButton('🔄 Synchroniser')
+        sync_btn.setToolTip('Synchroniser avec Supabase')
+        sync_btn.clicked.connect(self.sync_to_supabase)
+        toolbar.addWidget(sync_btn)
         
         # Add stretch to push user info to the right
         spacer = QWidget()
@@ -479,6 +502,27 @@ class MainWindow(QMainWindow):
             """
         )
     
+    def start_sync_service(self):
+        """Start the background sync service"""
+        try:
+            sync_service.start_background_sync()
+            self.status_label.setText("Service de synchronisation démarré")
+        except Exception as e:
+            print(f"Error starting sync service: {e}")
+            self.status_label.setText("Erreur: Service de synchronisation non démarré")
+
+    def add_sync_status_widget(self):
+        """Add sync status widget to the status bar"""
+        try:
+            self.sync_status_widget = SyncStatusWidget()
+            self.status_bar.addPermanentWidget(self.sync_status_widget)
+        except Exception as e:
+            print(f"Error adding sync status widget: {e}")
+            # Create a simple error label instead
+            error_label = QLabel("Sync: Error")
+            error_label.setStyleSheet("color: red;")
+            self.status_bar.addPermanentWidget(error_label)
+
     def closeEvent(self, event):
         """Handle window close event"""
         reply = QMessageBox.question(
@@ -490,6 +534,11 @@ class MainWindow(QMainWindow):
         )
         
         if reply == QMessageBox.Yes:
+            try:
+                sync_service.stop_background_sync()
+            except Exception as e:
+                print(f"Error stopping sync service: {e}")
+            
             # Perform cleanup
             if self.auth_service:
                 self.auth_service.logout()
@@ -500,3 +549,40 @@ class MainWindow(QMainWindow):
     def update_status(self, message):
         """Update status bar message"""
         self.status_label.setText(message)
+
+    def sync_to_supabase(self):
+        """Trigger manual synchronization with Supabase"""
+        try:
+            # Trigger immediate sync via the background service
+            result = sync_service.sync_now()
+            
+            if result and result.status.value == "success":
+                total_synced = result.patients_synced + result.visits_synced
+                QMessageBox.information(
+                    self,
+                    "Synchronisation réussie",
+                    f"Synchronisation terminée avec succès!\n"
+                    f"Patients synchronisés: {result.patients_synced}\n"
+                    f"Visites synchronisées: {result.visits_synced}\n"
+                    f"Total: {total_synced} enregistrements"
+                )
+            elif result:
+                QMessageBox.warning(
+                    self,
+                    "Synchronisation",
+                    f"Statut de synchronisation: {result.message}"
+                )
+            else:
+                QMessageBox.warning(
+                    self,
+                    "Synchronisation",
+                    "Erreur: Impossible de démarrer la synchronisation"
+                )
+                
+        except Exception as e:
+            print(f"Error in sync_to_supabase: {e}")
+            QMessageBox.critical(
+                self,
+                "Erreur de synchronisation",
+                f"Erreur lors de la synchronisation:\n{str(e)}"
+            )

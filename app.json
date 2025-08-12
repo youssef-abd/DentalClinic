@@ -1,0 +1,12 @@
+{
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "6be164c4-3cee-42be-85fb-f50d7d548912"
+      }
+    },
+    "android": {
+      "package": "com.youssef21060.dental"
+    }
+  }
+}

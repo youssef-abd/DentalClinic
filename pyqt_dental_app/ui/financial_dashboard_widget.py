@@ -20,6 +20,7 @@ except ImportError:
     print("⚠️ Le module scipy n'est pas installé. Certaines fonctionnalités avancées seront désactivées.")
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
+from ..services.dashboard_data_service import FinancialDashboardService
 
 class FinancialDashboardWidget(QWidget):
     """Financial dashboard for revenue, expenses, and profit analysis"""
@@ -83,7 +84,7 @@ class FinancialDashboardWidget(QWidget):
         content_layout.addWidget(line2)
         
         # Tables Section
-        self.create_tables_section(content_layout)
+        content_layout.addWidget(self.create_tables_section())
         
         # Add stretch to push content up
         content_layout.addStretch(1)
@@ -284,14 +285,6 @@ class FinancialDashboardWidget(QWidget):
         self.profit_margin = self.create_kpi_card(
             "Marge Bénéficiaire", "0%", "Mois en cours", "📈")
         
-        # Chart-related KPIs (for navigation)
-        self.expenses_by_category = self.create_kpi_card(
-            "Dépenses par Catégorie", "Voir graphique", "Catégories", "📊")
-        self.revenue_trend = self.create_kpi_card(
-            "Tendance Revenus", "Voir graphique", "6 mois", "📈")
-        self.expenses_trend = self.create_kpi_card(
-            "Tendance Dépenses", "Voir graphique", "6 mois", "📉")
-        
         # Arrange KPI cards in a flexible 3-column grid to reduce width
         kpi_cards = [
             self.revenue_month,
@@ -299,9 +292,6 @@ class FinancialDashboardWidget(QWidget):
             self.expenses_month,
             self.expenses_year,
             self.profit_margin,
-            self.expenses_by_category,
-            self.revenue_trend,
-            self.expenses_trend,
         ]
         for idx, card in enumerate(kpi_cards):
             row = idx // 3  # 3 cards per row
@@ -408,10 +398,11 @@ class FinancialDashboardWidget(QWidget):
         
         # Initialize chart data
         self.update_charts()
+
         
-        # Create missing chart figures for data updates
-        self.expenses_figure = Figure(figsize=(6, 4), dpi=80)
-        self.category_figure = Figure(figsize=(6, 4), dpi=80)
+        # Assign figures from existing canvases
+        self.expenses_figure = self.expenses_trend_chart.figure
+        self.category_figure = self.expenses_pie_chart.figure
     
     def create_revenue_expenses_chart(self):
         """Create revenue vs expenses comparison chart"""
@@ -443,16 +434,16 @@ class FinancialDashboardWidget(QWidget):
         for i, v in enumerate(expenses):
             ax.text(i - 0.2, v + 500, f"{v//1000}K", ha='center')
         
-        fig.tight_layout()
+        fig.tight_layout(pad=3.0)  # Increased padding
         return canvas
     
     def create_expenses_pie_chart(self):
         """Create expenses by category pie chart"""
-        fig = Figure(figsize=(6, 3.5), dpi=80)  # Larger size
+        fig = Figure(figsize=(6, 4.5), dpi=80)  # Increased height slightly
         canvas = FigureCanvas(fig)
-        canvas.setMinimumHeight(280)  # Increased height
+        canvas.setMinimumHeight(320)  # Increased height
         canvas.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        fig.tight_layout(pad=1.5)  # Slightly more padding
+        fig.subplots_adjust(top=0.85, bottom=0.15)  # Added padding adjustments
         ax = fig.add_subplot(111)
         
         # Sample data - replace with real data
@@ -468,7 +459,7 @@ class FinancialDashboardWidget(QWidget):
         ax.axis('equal')
         ax.set_title('Répartition des Dépenses par Catégorie')
         
-        fig.tight_layout()
+        fig.tight_layout(pad=3.0)  # Increased padding
         return canvas
     
     def create_revenue_trend_chart(self):
@@ -493,14 +484,14 @@ class FinancialDashboardWidget(QWidget):
         for i, v in enumerate(revenue):
             ax.text(i, v + 1000, f"{v//1000}K", ha='center')
         
-        fig.tight_layout()
+        fig.tight_layout(pad=3.0)  # Increased padding
         return canvas
     
     def create_revenue_bar_chart(self):
         """Create revenue bar chart for last 6 months (moved from overview)"""
-        fig = Figure(figsize=(6, 3.5), dpi=80)
+        fig = Figure(figsize=(6, 4.2), dpi=80)
         canvas = FigureCanvas(fig)
-        canvas.setMinimumHeight(280)
+        canvas.setMinimumHeight(336)
         canvas.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         ax = fig.add_subplot(111)
         months = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin']
@@ -511,30 +502,10 @@ class FinancialDashboardWidget(QWidget):
         ax.grid(True, axis='y', alpha=0.3)
         for bar, val in zip(bars, amounts):
             ax.text(bar.get_x() + bar.get_width()/2., val + 200, f'{val//1000}K', ha='center')
-        fig.tight_layout()
+        fig.tight_layout(pad=3.0)  # Increased padding
         return canvas
 
-    def update_stock_table(self):
-        """Populate stock alert table with placeholder until service integration"""
-        sample = [
-            ('Gants latex', '5', 'Stock bas'),
-            ('Amalgame', '2', 'Critique'),
-            ('Seringues', '15', 'Stock bas'),
-            ('Anesthésique', '3', 'Critique')
-        ]
-        if hasattr(self, 'stock_table'):
-            self.stock_table.setRowCount(len(sample))
-            for row, (item, qty, status) in enumerate(sample):
-                self.stock_table.setItem(row, 0, QTableWidgetItem(item))
-                self.stock_table.setItem(row, 1, QTableWidgetItem(qty))
-                status_item = QTableWidgetItem(status)
-                if status == 'Critique':
-                    status_item.setBackground(QColor('#e74c3c'))
-                    status_item.setForeground(QColor('white'))
-                elif status == 'Stock bas':
-                    status_item.setBackground(QColor('#f39c12'))
-                    status_item.setForeground(QColor('white'))
-                self.stock_table.setItem(row, 2, status_item)
+
 
     def create_expenses_trend_chart(self):
         """Create expenses trend line chart"""
@@ -558,7 +529,7 @@ class FinancialDashboardWidget(QWidget):
         for i, v in enumerate(expenses):
             ax.text(i, v + 500, f"{v//1000}K", ha='center')
         
-        fig.tight_layout()
+        fig.tight_layout(pad=3.0)  # Increased padding
         return canvas
     
     def update_charts(self):
@@ -1025,132 +996,20 @@ class FinancialDashboardWidget(QWidget):
             ax.annotate(f'{profit:,}', (i, profit), textcoords="offset points", 
                        xytext=(0,10), ha='center', fontsize=9)
         
-        fig.tight_layout()
+        fig.tight_layout(pad=3.0)  # Increased padding
         return canvas
     
-    def create_tables_section(self, layout):
-        """Create tables section"""
-        tables_layout = QHBoxLayout()
-        tables_layout.setSpacing(25)  # Add spacing between tables
-        tables_layout.setContentsMargins(10, 10, 10, 10)  # Add margins
-        
-        # Unpaid invoices table
-        unpaid_frame = self.create_unpaid_table()
-        tables_layout.addWidget(unpaid_frame)
-        
-        # Top expenses table
-        expenses_frame = self.create_top_expenses_table()
-        tables_layout.addWidget(expenses_frame)
-
-        # Stock alerts table (moved from overview dashboard)
-        stock_frame = self.create_stock_alerts_table()
-        tables_layout.addWidget(stock_frame)
-        
-        layout.addLayout(tables_layout)
+    def create_tables_section(self):
+        tables_layout = QVBoxLayout()
+        tables_container = QWidget()
+        tables_container.setLayout(tables_layout)
+        return tables_container
     
-    def create_unpaid_table(self):
-        """Create unpaid invoices table"""
-        frame = QFrame()
-        frame.setMinimumHeight(320)  # Set minimum height
-        # frame.setMinimumWidth(420)   # Removed fixed minimum width to allow responsiveness
-        frame.setStyleSheet("QFrame { background-color: white; border-radius: 12px; padding: 25px; margin: 10px; }")
-        layout = QVBoxLayout(frame)
-        layout.setSpacing(15)  # Add spacing
-        
-        title = QLabel("💳 Factures Impayées")
-        title.setStyleSheet("font-size: 18px; font-weight: bold; margin-bottom: 15px; padding: 5px; color: #2c3e50;")
-        layout.addWidget(title)
-        
-        table = QTableWidget()
-        table.setColumnCount(3)
-        table.setHorizontalHeaderLabels(['Patient', 'Montant', 'Date'])
-        table.setRowCount(5)
-        
-        # Sample data
-        unpaid_data = [
-            ('Ahmed Benali', '1,200 MAD', '15/07/2025'),
-            ('Fatima Zahra', '800 MAD', '18/07/2025'),
-            ('Mohamed Alami', '1,500 MAD', '20/07/2025'),
-            ('Aicha Idrissi', '600 MAD', '22/07/2025'),
-            ('Youssef Tazi', '950 MAD', '25/07/2025')
-        ]
-        
-        for row, (patient, amount, date) in enumerate(unpaid_data):
-            table.setItem(row, 0, QTableWidgetItem(patient))
-            table.setItem(row, 1, QTableWidgetItem(amount))
-            table.setItem(row, 2, QTableWidgetItem(date))
-        
-        table.setMaximumHeight(200)
-        table.horizontalHeader().setStretchLastSection(True)
-        layout.addWidget(table)
-        
-        return frame
+
     
-    def create_stock_alerts_table(self):
-        """Create stock alerts table (moved from overview)"""
-        frame = QFrame()
-        frame.setMinimumHeight(300)
-        frame.setStyleSheet("""
-            QFrame {
-                background-color: white;
-                border-radius: 12px;
-                padding: 25px;
-                margin: 10px;
-            }
-        """)
-        layout = QVBoxLayout(frame)
-        title = QLabel("⚠️ Alertes Stock")
-        title.setStyleSheet("font-size: 18px; font-weight: bold; color: #2c3e50; margin-bottom: 15px; padding: 5px;")
-        layout.addWidget(title)
 
-        self.stock_table = QTableWidget()
-        self.stock_table.setColumnCount(3)
-        self.stock_table.setHorizontalHeaderLabels(["Article", "Stock", "Status"])
-        self.stock_table.horizontalHeader().setStretchLastSection(True)
-        self.stock_table.setAlternatingRowColors(True)
-        layout.addWidget(self.stock_table)
 
-        # Placeholder data; will be updated via service
-        self.update_stock_table()
-        return frame
 
-    def create_top_expenses_table(self):
-        """Create top expenses table"""
-        frame = QFrame()
-        frame.setMinimumHeight(320)  # Set minimum height
-        # frame.setMinimumWidth(420)   # Removed fixed minimum width to allow responsiveness
-        frame.setStyleSheet("QFrame { background-color: white; border-radius: 12px; padding: 25px; margin: 10px; }")
-        layout = QVBoxLayout(frame)
-        layout.setSpacing(15)  # Add spacing
-        
-        title = QLabel("📊 Top Dépenses")
-        title.setStyleSheet("font-size: 18px; font-weight: bold; margin-bottom: 15px; padding: 5px; color: #2c3e50;")
-        layout.addWidget(title)
-        
-        table = QTableWidget()
-        table.setColumnCount(3)
-        table.setHorizontalHeaderLabels(['Catégorie', 'Montant', '%'])
-        table.setRowCount(5)
-        
-        # Sample data
-        expenses_data = [
-            ('Matériel dentaire', '2,800 MAD', '34%'),
-            ('Salaires', '2,300 MAD', '28%'),
-            ('Loyer', '1,800 MAD', '22%'),
-            ('Utilities', '900 MAD', '11%'),
-            ('Autres', '430 MAD', '5%')
-        ]
-        
-        for row, (category, amount, percentage) in enumerate(expenses_data):
-            table.setItem(row, 0, QTableWidgetItem(category))
-            table.setItem(row, 1, QTableWidgetItem(amount))
-            table.setItem(row, 2, QTableWidgetItem(percentage))
-        
-        table.setMaximumHeight(200)
-        table.horizontalHeader().setStretchLastSection(True)
-        layout.addWidget(table)
-        
-        return frame
     
     def load_data(self):
         """Load data for the dashboard"""
@@ -1180,6 +1039,17 @@ class FinancialDashboardWidget(QWidget):
             
         except Exception as e:
             print(f"Error loading financial data: {e}")
+            
+    def refresh_data(self):
+        """Refresh data from the service"""
+        service = FinancialDashboardService()
+        try:
+            data = service.get_financial_overview()
+            # Update UI elements with data
+            self.update_kpis(data)
+            self.update_charts()
+        finally:
+            service.close()
     
     def update_kpis(self, data):
         """Update the KPI cards with expense data"""
@@ -1208,18 +1078,18 @@ class FinancialDashboardWidget(QWidget):
                               f"{profit_margin:.1f}%", 
                               "Mois en cours")
             
-            # Update other KPIs
-            self.update_kpi_card(self.expenses_by_category, 
-                              "Voir graphique", 
-                              f"{len(data.get('expense_categories', []))} catégories")
+            # # Update other KPIs
+            # self.update_kpi_card(self.expenses_by_category, 
+            #                   "Voir graphique", 
+            #                   f"{len(data.get('expense_categories', []))} catégories")
             
-            self.update_kpi_card(self.revenue_trend, 
-                              "Voir graphique", 
-                              f"Tendance sur {data.get('trend_months', 6)} mois")
+            # self.update_kpi_card(self.revenue_trend, 
+            #                   "Voir graphique", 
+            #                   f"Tendance sur {data.get('trend_months', 6)} mois")
             
-            self.update_kpi_card(self.expenses_trend, 
-                              "Voir graphique", 
-                              f"Tendance sur {data.get('trend_months', 6)} mois")
+            # self.update_kpi_card(self.expenses_trend, 
+            #                   "Voir graphique", 
+            #                   f"Tendance sur {data.get('trend_months', 6)} mois")
             
         except Exception as e:
             print(f"Error updating KPIs: {e}")
@@ -1271,7 +1141,7 @@ class FinancialDashboardWidget(QWidget):
                             ha='center', va='bottom')
             
             # Update the canvas
-            self.expenses_canvas.draw()
+            self.expenses_trend_chart.draw()
             
         except Exception as e:
             print(f"Error updating expenses chart: {e}")
@@ -1323,7 +1193,7 @@ class FinancialDashboardWidget(QWidget):
             ax.set_title('Répartition des Dépenses par Catégorie', fontweight='bold', pad=20)
             
             # Update the canvas
-            self.category_canvas.draw()
+            self.expenses_pie_chart.draw()
             
         except Exception as e:
             print(f"Error updating category chart: {e}")

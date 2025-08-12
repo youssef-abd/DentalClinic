@@ -58,24 +58,25 @@ class ExpenseManagementWidget(QWidget):
         """)
         self.add_expense_btn.clicked.connect(self.show_add_expense_dialog)
         header_layout.addWidget(self.add_expense_btn)
-        
-        # Test button (temporary)
-        test_btn = QPushButton("🧪 Test Données")
-        test_btn.setStyleSheet("""
+
+        # Add category button
+        self.add_category_btn = QPushButton("📁 Nouvelle Catégorie")
+        self.add_category_btn.setStyleSheet("""
             QPushButton {
                 background-color: #3B82F6;
                 color: white;
                 border: none;
-                padding: 10px 15px;
+                padding: 10px 20px;
                 border-radius: 5px;
+                font-weight: bold;
                 margin-left: 10px;
             }
             QPushButton:hover {
                 background-color: #2563EB;
             }
         """)
-        test_btn.clicked.connect(self.add_test_expense)
-        header_layout.addWidget(test_btn)
+        self.add_category_btn.clicked.connect(self.show_add_category_dialog)
+        header_layout.addWidget(self.add_category_btn)
         
         main_layout.addLayout(header_layout)
         
@@ -154,7 +155,7 @@ class ExpenseManagementWidget(QWidget):
         date_layout.addWidget(QLabel("Période:"))
         
         self.start_date = QDateEdit()
-        self.start_date.setDate(QDate.currentDate().addDays(-30))
+        self.start_date.setDate(QDate(2025, 1, 1))  # Set to 01/01/2025
         self.start_date.setCalendarPopup(True)
         self.start_date.setDisplayFormat("dd/MM/yy")
         self.start_date.dateChanged.connect(self.filter_expenses)
@@ -163,7 +164,7 @@ class ExpenseManagementWidget(QWidget):
         date_layout.addWidget(QLabel("à"))
         
         self.end_date = QDateEdit()
-        self.end_date.setDate(QDate.currentDate())
+        self.end_date.setDate(QDate.currentDate().addDays(1))  # Set to tomorrow
         self.end_date.setCalendarPopup(True)
         self.end_date.setDisplayFormat("dd/MM/yy")
         self.end_date.dateChanged.connect(self.filter_expenses)
@@ -217,14 +218,6 @@ class ExpenseManagementWidget(QWidget):
         refresh_btn.setMaximumWidth(30)
         refresh_btn.clicked.connect(self.refresh_data)
         toolbar.addWidget(refresh_btn)
-        
-        # Test data button (temporary for debugging) - more compact
-        test_btn = QPushButton("🧪")
-        test_btn.setToolTip("Ajouter des données de test")
-        test_btn.setMaximumWidth(30)
-        test_btn.setStyleSheet("background-color: #E3F2FD;")
-        test_btn.clicked.connect(self.add_test_expense)
-        toolbar.addWidget(test_btn)
         
         # Add a small spacer
         toolbar.addSpacing(10)
@@ -426,28 +419,28 @@ class ExpenseManagementWidget(QWidget):
         """Load expenses into table"""
         try:
             print("\n=== DEBUT load_expenses ===")
-            
+
             # Get date range
             start_date = self.start_date.date().toPyDate()
             end_date = self.end_date.date().toPyDate()
-            
+
             # Log the exact date objects being used
             print(f"Plage de dates sélectionnée:")
             print(f"- Date de début (QDate): {self.start_date.date().toString('yyyy-MM-dd')}")
             print(f"- Date de fin (QDate): {self.end_date.date().toString('yyyy-MM-dd')}")
             print(f"- Date de début (Python): {start_date} (type: {type(start_date)})")
             print(f"- Date de fin (Python): {end_date} (type: {type(end_date)})")
-            
+
             # Vérifier si les dates sont valides
             if start_date > end_date:
                 print("ATTENTION: La date de début est postérieure à la date de fin!")
-            
+
             # Get expenses
             print("\nAppel à get_expenses_by_date_range...")
             self.current_expenses = self.expense_service.get_expenses_by_date_range(
                 start_date, end_date
             )
-            
+
             print(f"\nRésultat: {len(self.current_expenses)} dépenses trouvées")
             if self.current_expenses:
                 print("Dépenses trouvées (par date décroissante):")
@@ -868,96 +861,18 @@ class ExpenseManagementWidget(QWidget):
             self.load_suppliers()
     
     def delete_supplier(self, supplier):
-        """Delete supplier"""
+        """Deactivate a supplier (soft delete)"""
         reply = QMessageBox.question(
-            self, "Confirmer la suppression",
-            f"Êtes-vous sûr de vouloir supprimer ce fournisseur?\n\n{supplier.name}",
+            self, "Confirmer la désactivation",
+            f"Êtes-vous sûr de vouloir désactiver ce fournisseur : {supplier.name}?\n\n"
+            "Le fournisseur ne sera plus sélectionnable pour de nouvelles dépenses.",
             QMessageBox.Yes | QMessageBox.No
         )
         
         if reply == QMessageBox.Yes:
             try:
-                # Note: This will only work if no expenses are associated
                 self.expense_service.update_supplier(supplier.id, is_active=False)
                 self.load_suppliers()
                 QMessageBox.information(self, "Succès", "Fournisseur désactivé avec succès!")
             except Exception as e:
-                QMessageBox.critical(self, "Erreur", f"Erreur lors de la suppression: {str(e)}")
-    
-    def add_test_expense(self):
-        """Add a test expense for debugging"""
-        try:
-            from datetime import date, timedelta
-            
-            # Check if we have categories and suppliers
-            categories = self.expense_service.get_all_categories()
-            suppliers = self.expense_service.get_all_suppliers()
-            
-            # Create test category if none exists
-            if not categories:
-                category_id = self.expense_service.create_category(
-                    name="Fournitures",
-                    description="Fournitures de bureau et médicales"
-                )
-                print(f"Catégorie de test créée avec l'ID: {category_id}")
-            else:
-                category_id = categories[0].id
-            
-            # Create test supplier if none exists
-            if not suppliers:
-                supplier_id = self.expense_service.create_supplier(
-                    name="Fournisseur Test",
-                    contact_person="M. Test",
-                    phone="0612345678",
-                    email="test@example.com"
-                )
-                print(f"Fournisseur de test créé avec l'ID: {supplier_id}")
-            else:
-                supplier_id = suppliers[0].id
-            
-            # Create test expense with explicit date handling
-            from datetime import datetime
-            
-            # Use a fixed date that we know should be in range
-            test_date = date.today() - timedelta(days=1)  # Yesterday
-            
-            # Log the date we're using
-            print(f"\n=== Création d'une dépense de test ===")
-            print(f"Date de la dépense: {test_date} (type: {type(test_date)})")
-            
-            expense_id = self.expense_service.create_expense(
-                date=test_date,
-                description="Achat de fournitures de test",
-                amount=150.50,
-                category_id=category_id,
-                supplier_id=supplier_id,
-                payment_method="carte",
-                notes="Dépense de test"
-            )
-            
-            # Log the created expense ID
-            print(f"Dépense créée avec l'ID: {expense_id}")
-            
-            # Force a commit to make sure the data is saved
-            self.expense_service.session.commit()
-            
-            print(f"Dépense de test créée avec l'ID: {expense_id}")
-            
-            # Refresh data
-            self.refresh_data()
-            
-            QMessageBox.information(
-                self, 
-                "Test réussi", 
-                f"Une dépense de test a été ajoutée avec succès!\nID: {expense_id}"
-            )
-            
-        except Exception as e:
-            import traceback
-            error_details = traceback.format_exc()
-            print(f"Erreur lors de l'ajout de la dépense de test: {error_details}")
-            QMessageBox.critical(
-                self, 
-                "Erreur", 
-                f"Erreur lors de l'ajout de la dépense de test:\n{str(e)}"
-            )
+                QMessageBox.critical(self, "Erreur", f"Erreur lors de la désactivation: {str(e)}")

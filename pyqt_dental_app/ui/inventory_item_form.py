@@ -128,17 +128,23 @@ class InventoryItemForm(QDialog):
         
         # Unit cost
         self.unit_cost_input = QDoubleSpinBox()
-        self.unit_cost_input.setRange(0.0, 99999.99)
-        self.unit_cost_input.setDecimals(2)
-        self.unit_cost_input.setSuffix(" DH")
-        form_layout.addRow("Prix d'Achat:", self.unit_cost_input)
+        self.unit_cost_input.setRange(0.0, 99999.0)
+        self.unit_cost_input.setDecimals(0)  # No decimals
+        self.unit_cost_input.setSuffix("")  # No suffix
+        self.unit_cost_input.setButtonSymbols(QDoubleSpinBox.NoButtons)  # Remove scroll buttons
+        # Prevent scroll wheel changes
+        self.unit_cost_input.wheelEvent = lambda event: None
+        form_layout.addRow("Prix d'Achat (DH):", self.unit_cost_input)
         
         # Selling price
         self.selling_price_input = QDoubleSpinBox()
-        self.selling_price_input.setRange(0.0, 99999.99)
-        self.selling_price_input.setDecimals(2)
-        self.selling_price_input.setSuffix(" DH")
-        form_layout.addRow("Prix de Vente:", self.selling_price_input)
+        self.selling_price_input.setRange(0.0, 99999.0)
+        self.selling_price_input.setDecimals(0)  # No decimals
+        self.selling_price_input.setSuffix("")  # No suffix
+        self.selling_price_input.setButtonSymbols(QDoubleSpinBox.NoButtons)  # Remove scroll buttons
+        # Prevent scroll wheel changes
+        self.selling_price_input.wheelEvent = lambda event: None
+        form_layout.addRow("Prix de Vente (DH):", self.selling_price_input)
         
         parent_layout.addWidget(group)
     

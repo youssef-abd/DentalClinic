@@ -148,26 +148,30 @@ class VisitFormWidget(QWidget):
         
         # Price field
         self.prix_input = QDoubleSpinBox()
-        self.prix_input.setRange(0.0, 999999.99)
-        self.prix_input.setDecimals(2)
-        self.prix_input.setSuffix(" DH")
+        self.prix_input.setRange(0.0, 999999.0)
+        self.prix_input.setDecimals(0)  # No decimals
+        self.prix_input.setSuffix("")  # No suffix
         self.prix_input.setButtonSymbols(QDoubleSpinBox.NoButtons)  # Remove scroll buttons
         self.prix_input.setStyleSheet(input_style)
         self.prix_input.valueChanged.connect(self.calculate_reste)
-        financial_layout.addRow("Prix total:", self.prix_input)
+        # Prevent scroll wheel changes
+        self.prix_input.wheelEvent = lambda event: None
+        financial_layout.addRow("Prix total (DH):", self.prix_input)
         
         # Paid amount field
         self.paye_input = QDoubleSpinBox()
-        self.paye_input.setRange(0.0, 999999.99)
-        self.paye_input.setDecimals(2)
-        self.paye_input.setSuffix(" DH")
+        self.paye_input.setRange(0.0, 999999.0)
+        self.paye_input.setDecimals(0)  # No decimals
+        self.paye_input.setSuffix("")  # No suffix
         self.paye_input.setButtonSymbols(QDoubleSpinBox.NoButtons)  # Remove scroll buttons
         self.paye_input.setStyleSheet(input_style)
         self.paye_input.valueChanged.connect(self.calculate_reste)
-        financial_layout.addRow("Montant payé:", self.paye_input)
+        # Prevent scroll wheel changes
+        self.paye_input.wheelEvent = lambda event: None
+        financial_layout.addRow("Montant payé (DH):", self.paye_input)
         
         # Remaining amount (calculated)
-        self.reste_label = QLabel("0.00 DH")
+        self.reste_label = QLabel("0 DH")
         self.reste_label.setStyleSheet("""
             QLabel {
                 padding: 8px;
@@ -290,8 +294,10 @@ class VisitFormWidget(QWidget):
         self.dent_input.clear()
         self.acte_input.clear()
         self.prix_input.setValue(0.0)
+        self.prix_input.setSpecialValueText(" ")  # Show empty space instead of 0
         self.paye_input.setValue(0.0)
-        self.reste_label.setText("0.00 DH")
+        self.paye_input.setSpecialValueText(" ")  # Show empty space instead of 0
+        self.reste_label.setText(" ")  # Show empty space
         
         # Show save_and_new button for new visits
         self.save_and_new_btn.setVisible(True)
@@ -328,7 +334,9 @@ class VisitFormWidget(QWidget):
         self.dent_input.setText(visit.dent or "")
         self.acte_input.setPlainText(visit.acte or "")
         self.prix_input.setValue(visit.prix or 0.0)
+        self.prix_input.setSpecialValueText(" ") if visit.prix == 0 else None
         self.paye_input.setValue(visit.paye or 0.0)
+        self.paye_input.setSpecialValueText(" ") if visit.paye == 0 else None
         
         # Calculate and display remaining amount
         self.calculate_reste()
@@ -345,7 +353,7 @@ class VisitFormWidget(QWidget):
         paye = self.paye_input.value()
         reste = prix - paye
         
-        self.reste_label.setText(f"{reste:.2f} DH")
+        self.reste_label.setText(f"{int(reste)} DH")
         
         # Color code the remaining amount
         if reste > 0:

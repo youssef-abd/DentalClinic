@@ -252,7 +252,10 @@ class DashboardWidget(QWidget):
         charts_container = QHBoxLayout()
         charts_container.setSpacing(20)  # Add spacing between charts
         
-
+        # Revenue chart
+        self.revenue_chart = self.create_revenue_chart()
+        self.revenue_chart.setMinimumSize(400, 300)  # Set minimum size
+        charts_container.addWidget(self.revenue_chart)
         
         # Expenses chart
         self.expenses_chart = self.create_expenses_chart()
@@ -454,16 +457,13 @@ class DashboardWidget(QWidget):
                     print(f"📊 Dashboard data loaded: {len(data)} metrics")
                     
                     # Update metrics with real data
-                    if hasattr(self, 'update_metrics'):
-                        self.update_metrics(data)
+                    self.update_metrics(data)
                     
-                    # Update charts with real data if method exists
-                    if hasattr(self, 'update_charts'):
-                        self.update_charts(data)
+                    # Update charts with real data
+                    self.update_charts(data)
                     
-                    # Update tables with real data if method exists
-                    if hasattr(self, 'update_tables'):
-                        self.update_tables(data)
+                    # Update tables with real data
+                    self.update_tables(data)
                     
                     print("✅ Dashboard updated with real data")
                 else:
@@ -473,33 +473,35 @@ class DashboardWidget(QWidget):
             except Exception as e:
                 print(f"❌ Error loading real dashboard data: {e}")
                 # Fallback to showing empty/default state
-                if hasattr(self, 'show_no_data_message'):
-                    self.show_no_data_message()
+                self.show_no_data_message()
         else:
             print("❌ No dashboard service available")
-            if hasattr(self, 'show_no_data_message'):
-                self.show_no_data_message()
+            self.show_no_data_message()
     
     def update_metrics(self, data):
         """Update metric cards with real data"""
         try:
             # Update patient metrics
-            if hasattr(self, 'patients_card'):
-                self.update_metric_card_value(self.patients_card, str(data.get('total_patients', 0)))
+            if hasattr(self, 'patients_total_card'):
+                self.update_metric_card_value(self.patients_total_card, str(data.get('total_patients', 0)))
             
-            # Update visits metrics
-            if hasattr(self, 'visits_card'):
-                self.update_metric_card_value(self.visits_card, str(data.get('visits_this_month', 0)))
+            if hasattr(self, 'patients_month_card'):
+                self.update_metric_card_value(self.patients_month_card, str(data.get('new_patients_month', 0)))
             
             # Update revenue metrics
-            if hasattr(self, 'revenue_card'):
+            if hasattr(self, 'revenue_month_card'):
                 revenue = data.get('revenue_this_month', 0)
-                self.update_metric_card_value(self.revenue_card, f"{revenue:.0f} DH")
+                self.update_metric_card_value(self.revenue_month_card, f"{revenue:.0f} MAD")
+            
+            # Update expenses metrics
+            if hasattr(self, 'expenses_month_card'):
+                expenses = data.get('expenses_this_month', 0)
+                self.update_metric_card_value(self.expenses_month_card, f"{expenses:.0f} MAD")
             
             # Update unpaid balance
-            if hasattr(self, 'unpaid_card'):
+            if hasattr(self, 'unpaid_balance_card'):
                 unpaid = data.get('unpaid_balance', 0)
-                self.update_metric_card_value(self.unpaid_card, f"{unpaid:.0f} DH")
+                self.update_metric_card_value(self.unpaid_balance_card, f"{unpaid:.0f} MAD")
                 
         except Exception as e:
             print(f"Error updating metrics: {e}")
@@ -593,9 +595,53 @@ class DashboardWidget(QWidget):
             revenue_trend = data.get('revenue_trend', [])
             if revenue_trend and hasattr(self, 'revenue_chart'):
                 self.update_revenue_chart(revenue_trend)
+            
+            # Update expenses chart with real category data
+            expenses_by_category = data.get('expenses_by_category', [])
+            if expenses_by_category and hasattr(self, 'expenses_chart'):
+                self.update_expenses_chart(expenses_by_category)
                 
         except Exception as e:
             print(f"Error updating charts: {e}")
+    
+    def update_expenses_chart(self, expenses_data):
+        """Update the expenses chart with real data"""
+        try:
+            # Clear the current figure
+            self.expenses_chart.figure.clear()
+            
+            # Create new plot
+            ax = self.expenses_chart.figure.add_subplot(111)
+            ax.set_title('Répartition des Dépenses', fontsize=14, fontweight='bold')
+            
+            # Extract categories and amounts from data
+            categories = [item.get('category', '') for item in expenses_data]
+            amounts = [item.get('amount', 0) for item in expenses_data]
+            
+            # Calculate percentages
+            total = sum(amounts) if amounts else 1
+            percentages = [(amount / total * 100) if total > 0 else 0 for amount in amounts]
+            
+            # Colors for the pie chart
+            colors = ['#3498db', '#2ecc71', '#e74c3c', '#f39c12', '#9b59b6', '#34495e', '#e67e22']
+            
+            # Create pie chart
+            wedges, texts, autotexts = ax.pie(percentages, labels=categories, colors=colors[:len(categories)], 
+                                             autopct='%1.1f%%', startangle=90)
+            
+            # Improve text appearance
+            for autotext in autotexts:
+                autotext.set_color('white')
+                autotext.set_fontweight('bold')
+            
+            # Adjust layout to prevent label cutoff
+            self.expenses_chart.figure.tight_layout()
+            
+            # Redraw the canvas
+            self.expenses_chart.draw()
+            
+        except Exception as e:
+            print(f"Error updating expenses chart: {e}")
             
     def update_tables(self, data):
         """Update tables with real data"""

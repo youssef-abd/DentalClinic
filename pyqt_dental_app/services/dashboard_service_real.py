@@ -834,9 +834,11 @@ class RealDashboardService:
             'visits_this_month': self.get_visits_this_month(),
             'total_revenue': self.get_total_revenue(),
             'revenue_this_month': self.get_revenue_this_month(),
+            'expenses_this_month': self.get_expenses_this_month(),
             'unpaid_balance': self.get_unpaid_balance(),
             'low_stock_count': len(self.get_low_stock_items(10)),
             'revenue_trend': self.get_revenue_trend(),
+            'expenses_by_category': self.get_expenses_by_category(),
             'unpaid_visits': self.get_unpaid_visits(),
             'low_stock_items': self.get_low_stock_items()
         }
