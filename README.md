@@ -76,10 +76,6 @@ python pyqt_dental_app/db_init.py --info
 python run_dental_app.py
 ```
 
-## 👤 Default Login
-- **Username**: `mouna`
-- **Password**: `123`
-
 ## 🗂️ Data Storage
 
 The application stores data in the user's home directory:
