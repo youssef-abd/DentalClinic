@@ -245,24 +245,34 @@ class ExpenseService:
             raise Exception(f"Error updating category: {str(e)}")
     
     def delete_category(self, category_id):
-        """Delete category (only if no expenses are associated)"""
+        """Delete category by reassigning related records to a default category."""
         try:
             category = self.get_category(category_id)
             if not category:
                 raise Exception("Category not found")
-            
-            # Check if category has expenses
-            expense_count = self.session.query(Expense).filter(
-                Expense.category_id == category_id
-            ).count()
-            
-            if expense_count > 0:
-                raise Exception(f"Cannot delete category. {expense_count} expenses are associated with it.")
-            
+
+            # Find or create default category
+            default_name = "Sans catégorie"
+            default_category = self.session.query(ExpenseCategory).filter(ExpenseCategory.name == default_name).first()
+            if not default_category:
+                default_category = ExpenseCategory(name=default_name, description="Catégorie par défaut", color="#9E9E9E")
+                self.session.add(default_category)
+                self.session.flush()  # assign id
+
+            # Reassign expenses
+            self.session.query(Expense).filter(Expense.category_id == category_id).update(
+                {Expense.category_id: default_category.id}, synchronize_session=False
+            )
+
+            # Reassign recurring expenses
+            self.session.query(ExpenseRecurring).filter(ExpenseRecurring.category_id == category_id).update(
+                {ExpenseRecurring.category_id: default_category.id}, synchronize_session=False
+            )
+
+            self.session.flush()
             self.session.delete(category)
             self.session.commit()
             return True
-            
         except Exception as e:
             self.session.rollback()
             raise Exception(f"Error deleting category: {str(e)}")

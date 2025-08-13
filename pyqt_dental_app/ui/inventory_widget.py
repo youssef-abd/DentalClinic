@@ -37,7 +37,7 @@ class InventoryWidget(QWidget):
         # Header with title and actions
         header_layout = QHBoxLayout()
         
-        title_label = QLabel("📦 Gestion des Stocks")
+        title_label = QLabel("Gestion des Stocks")
         title_label.setFont(QFont("Arial", 16, QFont.Bold))
         title_label.setStyleSheet("color: #2E7D32; padding: 10px;")
         header_layout.addWidget(title_label)
@@ -73,19 +73,19 @@ class InventoryWidget(QWidget):
         
         # Inventory tab
         inventory_tab = self.create_inventory_tab()
-        self.tab_widget.addTab(inventory_tab, "📋 Inventaire")
+        self.tab_widget.addTab(inventory_tab, "Inventaire")
         
         # Low stock tab
         low_stock_tab = self.create_low_stock_tab()
-        self.tab_widget.addTab(low_stock_tab, "⚠️ Stock Faible")
+        self.tab_widget.addTab(low_stock_tab, "Stock Faible")
         
         # Expired items tab
         expired_tab = self.create_expired_tab()
-        self.tab_widget.addTab(expired_tab, "⏰ Expirés")
+        self.tab_widget.addTab(expired_tab, "Expirés")
         
         # Transactions tab
         transactions_tab = self.create_transactions_tab()
-        self.tab_widget.addTab(transactions_tab, "📊 Mouvements")
+        self.tab_widget.addTab(transactions_tab, "Mouvements")
         
         main_layout.addWidget(self.tab_widget)
     
@@ -110,7 +110,7 @@ class InventoryWidget(QWidget):
         search_layout.addWidget(self.category_filter)
         
         # Action buttons
-        self.add_item_btn = QPushButton("➕ Nouvel Article")
+        self.add_item_btn = QPushButton("Nouvel Article")
         self.add_item_btn.clicked.connect(self.show_add_item_dialog)
         self.add_item_btn.setStyleSheet("""
             QPushButton {
@@ -126,7 +126,7 @@ class InventoryWidget(QWidget):
             }
         """)
         
-        self.create_category_btn = QPushButton("📂 Nouvelle Catégorie")
+        self.create_category_btn = QPushButton("Nouvelle Catégorie")
         self.create_category_btn.clicked.connect(self.show_create_category_dialog)
         self.create_category_btn.setStyleSheet("""
             QPushButton {
@@ -141,17 +141,34 @@ class InventoryWidget(QWidget):
                 background-color: #1976D2;
             }
         """)
+
+        self.delete_category_btn = QPushButton("Supprimer Catégorie")
+        self.delete_category_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #E53935;
+                color: white;
+                border: none;
+                border-radius: 6px;
+                padding: 8px 16px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #C62828;
+            }
+        """)
+        self.delete_category_btn.clicked.connect(self.delete_selected_category)
         
-        self.edit_item_btn = QPushButton("✏️ Modifier")
+        self.edit_item_btn = QPushButton("Modifier")
         self.edit_item_btn.clicked.connect(self.edit_selected_item)
         self.edit_item_btn.setEnabled(False)
         
-        self.delete_item_btn = QPushButton("🗑️ Supprimer")
+        self.delete_item_btn = QPushButton("Supprimer")
         self.delete_item_btn.clicked.connect(self.delete_selected_item)
         self.delete_item_btn.setEnabled(False)
         
         search_layout.addWidget(self.add_item_btn)
         search_layout.addWidget(self.create_category_btn)
+        search_layout.addWidget(self.delete_category_btn)
         search_layout.addWidget(self.edit_item_btn)
         search_layout.addWidget(self.delete_item_btn)
         
@@ -196,11 +213,11 @@ class InventoryWidget(QWidget):
         self.stock_reason_input = QLineEdit()
         self.stock_reason_input.setPlaceholderText("Motif (optionnel)")
         
-        self.add_stock_btn = QPushButton("➕ Ajouter Stock")
+        self.add_stock_btn = QPushButton("Ajouter Stock")
         self.add_stock_btn.clicked.connect(self.add_stock)
         self.add_stock_btn.setEnabled(False)
         
-        self.remove_stock_btn = QPushButton("➖ Retirer Stock")
+        self.remove_stock_btn = QPushButton("Retirer Stock")
         self.remove_stock_btn.clicked.connect(self.remove_stock)
         self.remove_stock_btn.setEnabled(False)
         
@@ -222,7 +239,7 @@ class InventoryWidget(QWidget):
         layout = QVBoxLayout(tab)
         
         # Header
-        header_label = QLabel("⚠️ Articles avec Stock Faible")
+        header_label = QLabel("Articles avec Stock Faible")
         header_label.setFont(QFont("Arial", 14, QFont.Bold))
         header_label.setStyleSheet("color: #FF6B35; padding: 10px;")
         layout.addWidget(header_label)
@@ -250,7 +267,7 @@ class InventoryWidget(QWidget):
         layout = QVBoxLayout(tab)
         
         # Header
-        header_label = QLabel("⏰ Articles Expirés ou Expirant Bientôt")
+        header_label = QLabel("Articles Expirés ou Expirant Bientôt")
         header_label.setFont(QFont("Arial", 14, QFont.Bold))
         header_label.setStyleSheet("color: #D32F2F; padding: 10px;")
         layout.addWidget(header_label)
@@ -278,7 +295,7 @@ class InventoryWidget(QWidget):
         layout = QVBoxLayout(tab)
         
         # Header
-        header_label = QLabel("📊 Historique des Mouvements")
+        header_label = QLabel("Historique des Mouvements")
         header_label.setFont(QFont("Arial", 14, QFont.Bold))
         header_label.setStyleSheet("color: #1976D2; padding: 10px;")
         layout.addWidget(header_label)
@@ -608,6 +625,34 @@ class InventoryWidget(QWidget):
                 
         except Exception as e:
             QMessageBox.critical(self, "Erreur", f"Erreur lors de la création de la catégorie: {str(e)}")
+
+    def delete_selected_category(self):
+        """Delete the currently selected category from the filter"""
+        cat_id = self.category_filter.currentData()
+        cat_name = self.category_filter.currentText()
+        if cat_id is None or cat_name == "Toutes les catégories":
+            QMessageBox.warning(self, "Suppression non valide", "Veuillez sélectionner une catégorie spécifique à supprimer.")
+            return
+        reply = QMessageBox.question(
+            self, "Supprimer Catégorie",
+            f"Supprimer la catégorie '{cat_name}' ?\n\nLes articles seront réassignés à 'Sans catégorie'.",
+            QMessageBox.Yes | QMessageBox.No
+        )
+        if reply == QMessageBox.Yes:
+            try:
+                ok = self.inventory_service.delete_category(cat_id)
+                if ok:
+                    self.load_categories()
+                    # Select the default category after deletion if available
+                    idx = self.category_filter.findText("Sans catégorie")
+                    if idx >= 0:
+                        self.category_filter.setCurrentIndex(idx)
+                    self.load_items()
+                    QMessageBox.information(self, "Succès", f"Catégorie '{cat_name}' supprimée.")
+                else:
+                    QMessageBox.warning(self, "Info", "La catégorie n'a pas pu être supprimée.")
+            except Exception as e:
+                QMessageBox.critical(self, "Erreur", f"Erreur lors de la suppression de la catégorie: {str(e)}")
     
     def edit_selected_item(self):
         """Edit the selected item"""

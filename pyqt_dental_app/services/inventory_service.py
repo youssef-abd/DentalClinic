@@ -43,15 +43,35 @@ class InventoryService:
             session.close()
     
     def delete_category(self, category_id):
-        """Delete a category (only if no items are associated)"""
+        """Delete a category. If items exist, reassign them to a default category."""
         session = self.db_manager.get_session()
         try:
             category = session.query(InventoryCategory).filter_by(id=category_id).first()
-            if category and len(category.items) == 0:
-                session.delete(category)
-                session.commit()
-                return True
-            return False
+            if not category:
+                return False
+            
+            # Prevent deleting the default category
+            default_name = "Sans catégorie"
+            if category.name == default_name:
+                return False
+            
+            # Ensure a default category exists to avoid delete-orphan on items
+            default_category = session.query(InventoryCategory).filter(InventoryCategory.name == default_name).first()
+            if not default_category:
+                default_category = InventoryCategory(name=default_name, description="Catégorie par défaut")
+                session.add(default_category)
+                session.flush()  # get id
+            
+            # Reassign items to default category using ORM updates to avoid delete-orphan issues
+            items = session.query(InventoryItem).filter(InventoryItem.category_id == category.id).all()
+            for it in items:
+                it.category_id = default_category.id
+            session.flush()
+            
+            # Now safe to delete the category
+            session.delete(category)
+            session.commit()
+            return True
         except Exception as e:
             session.rollback()
             raise e

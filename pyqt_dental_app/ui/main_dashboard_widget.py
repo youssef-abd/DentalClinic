@@ -36,11 +36,11 @@ class MainDashboardWidget(QWidget):
         # Initialize dashboard service with real data
         if REAL_SERVICE_AVAILABLE:
             self.dashboard_service = RealDashboardService(session)
-            print("✅ Using real database service for dashboards")
+            print("Using real database service for dashboards")
         else:
             from ..services.dashboard_service_simple import DashboardService
             self.dashboard_service = DashboardService()
-            print("⚠️ Using mock data service for dashboards")
+            print("Using mock data service for dashboards")
         
         # Setup UI
         self.init_ui()
@@ -80,7 +80,7 @@ class MainDashboardWidget(QWidget):
         # Title section
         title_layout = QVBoxLayout()
         
-        main_title = QLabel("📊 Tableaux de Bord")
+        main_title = QLabel("Tableaux de Bord")
         main_title.setStyleSheet("""
             font-size: 24px; 
             font-weight: bold; 
@@ -133,7 +133,7 @@ class MainDashboardWidget(QWidget):
         buttons_layout.addWidget(refresh_btn)
         
         # Export button
-        export_btn = QPushButton("📊 Exporter")
+        export_btn = QPushButton("Exporter")
         export_btn.setStyleSheet("""
             QPushButton {
                 background-color: #27ae60;
@@ -221,13 +221,13 @@ class MainDashboardWidget(QWidget):
             self.financial_dashboard = FinancialDashboardWidget(
                 dashboard_service=self.dashboard_service
             )
-            self.tab_widget.addTab(self.financial_dashboard, "💰 Financier")
+            self.tab_widget.addTab(self.financial_dashboard, "Financier")
             
             # Patient Dashboard
             self.patient_dashboard = PatientDashboardWidget(
                 dashboard_service=self.dashboard_service
             )
-            self.tab_widget.addTab(self.patient_dashboard, "👥 Patients")
+            self.tab_widget.addTab(self.patient_dashboard,  "Patients")
             
             # Store references for easy access
             self.dashboards = [

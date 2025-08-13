@@ -36,13 +36,13 @@ class ExpenseManagementWidget(QWidget):
         
         # Header
         header_layout = QHBoxLayout()
-        title_label = QLabel("💰 Gestion des Dépenses")
+        title_label = QLabel("Gestion des Dépenses")
         title_label.setFont(QFont("Arial", 16, QFont.Bold))
         header_layout.addWidget(title_label)
         header_layout.addStretch()
         
         # Add expense button
-        self.add_expense_btn = QPushButton("➕ Nouvelle Dépense")
+        self.add_expense_btn = QPushButton("Nouvelle Dépense")
         self.add_expense_btn.setStyleSheet("""
             QPushButton {
                 background-color: #10B981;
@@ -60,7 +60,7 @@ class ExpenseManagementWidget(QWidget):
         header_layout.addWidget(self.add_expense_btn)
 
         # Add category button
-        self.add_category_btn = QPushButton("📁 Nouvelle Catégorie")
+        self.add_category_btn = QPushButton("Nouvelle Catégorie")
         self.add_category_btn.setStyleSheet("""
             QPushButton {
                 background-color: #3B82F6;
@@ -77,6 +77,25 @@ class ExpenseManagementWidget(QWidget):
         """)
         self.add_category_btn.clicked.connect(self.show_add_category_dialog)
         header_layout.addWidget(self.add_category_btn)
+
+        # Delete category button (same style as inventory)
+        self.delete_category_btn = QPushButton("Supprimer Catégorie")
+        self.delete_category_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #E53935;
+                color: white;
+                border: none;
+                padding: 10px 20px;
+                border-radius: 5px;
+                font-weight: bold;
+                margin-left: 10px;
+            }
+            QPushButton:hover {
+                background-color: #C62828;
+            }
+        """)
+        self.delete_category_btn.clicked.connect(self.delete_selected_expense_category)
+        header_layout.addWidget(self.delete_category_btn)
         
         main_layout.addLayout(header_layout)
         
@@ -185,6 +204,7 @@ class ExpenseManagementWidget(QWidget):
         self.category_filter.currentTextChanged.connect(self.filter_expenses)
         cat_layout.addWidget(self.category_filter)
         
+                
         filters_layout.addWidget(cat_group)
         filters_layout.addStretch()
         
@@ -351,15 +371,15 @@ class ExpenseManagementWidget(QWidget):
         analytics_layout.addStretch()
         
         # Add tabs
-        tab_widget.addTab(analytics_tab, "📊 Analyses")
+        tab_widget.addTab(analytics_tab, " Analyses")
         
         # Categories tab
         categories_tab = self.create_categories_tab()
-        tab_widget.addTab(categories_tab, "📁 Catégories")
+        tab_widget.addTab(categories_tab, "Catégories")
         
         # Suppliers tab
         suppliers_tab = self.create_suppliers_tab()
-        tab_widget.addTab(suppliers_tab, "🏢 Fournisseurs")
+        tab_widget.addTab(suppliers_tab, "Fournisseurs")
         
         container.addWidget(tab_widget)
         
@@ -374,7 +394,7 @@ class ExpenseManagementWidget(QWidget):
         layout = QVBoxLayout(tab)
         
         # Add category button
-        add_cat_btn = QPushButton("➕ Nouvelle Catégorie")
+        add_cat_btn = QPushButton("Nouvelle Catégorie")
         add_cat_btn.clicked.connect(self.show_add_category_dialog)
         layout.addWidget(add_cat_btn)
         
@@ -386,13 +406,41 @@ class ExpenseManagementWidget(QWidget):
         
         return tab
     
+    def delete_selected_expense_category(self):
+        """Delete currently selected expense category (discreet control)"""
+        cat_id = self.category_filter.currentData()
+        cat_name = self.category_filter.currentText()
+        if not cat_id:
+            QMessageBox.warning(self, "Suppression non valide", "Sélectionnez une catégorie spécifique à supprimer.")
+            return
+        if cat_name == "Sans catégorie":
+            QMessageBox.warning(self, "Suppression non autorisée", "La catégorie par défaut ne peut pas être supprimée.")
+            return
+        reply = QMessageBox.question(
+            self, "Supprimer Catégorie",
+            f"Supprimer la catégorie '{cat_name}' ?\n\nLes dépenses seront réassignées à 'Sans catégorie'.",
+            QMessageBox.Yes | QMessageBox.No
+        )
+        if reply == QMessageBox.Yes:
+            try:
+                self.expense_service.delete_category(cat_id)
+                self.load_categories()
+                # Select default after deletion and refresh list
+                idx = self.category_filter.findText("Sans catégorie")
+                if idx >= 0:
+                    self.category_filter.setCurrentIndex(idx)
+                self.load_expenses()
+                QMessageBox.information(self, "Succès", f"Catégorie '{cat_name}' supprimée.")
+            except Exception as e:
+                QMessageBox.critical(self, "Erreur", f"Erreur lors de la suppression: {str(e)}")
+
     def create_suppliers_tab(self):
         """Create suppliers management tab"""
         tab = QWidget()
         layout = QVBoxLayout(tab)
         
         # Add supplier button
-        add_sup_btn = QPushButton("➕ Nouveau Fournisseur")
+        add_sup_btn = QPushButton("Nouveau Fournisseur")
         add_sup_btn.clicked.connect(self.show_add_supplier_dialog)
         layout.addWidget(add_sup_btn)
         
@@ -842,6 +890,11 @@ class ExpenseManagementWidget(QWidget):
             try:
                 self.expense_service.delete_category(category.id)
                 self.load_categories()
+                # Select default and refresh expenses so reassigned items are visible
+                idx = self.category_filter.findText("Sans catégorie")
+                if idx >= 0:
+                    self.category_filter.setCurrentIndex(idx)
+                self.load_expenses()
                 QMessageBox.information(self, "Succès", "Catégorie supprimée avec succès!")
             except Exception as e:
                 QMessageBox.critical(self, "Erreur", f"Erreur lors de la suppression: {str(e)}")

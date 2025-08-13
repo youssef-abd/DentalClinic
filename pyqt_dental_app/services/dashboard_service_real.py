@@ -126,64 +126,73 @@ class RealDashboardService:
             if revenue_month > 0:
                 profit_margin = ((revenue_month - expenses_month) / revenue_month) * 100
             
-            # Generate trend data (last 6 months)
-            for i in range(6, 0, -1):
-                month_start = (today.replace(day=1) - timedelta(days=30*i)).replace(day=1)
-                month_end = (month_start + timedelta(days=32)).replace(day=1) - timedelta(days=1)
-                
-                # Get revenue for the month
-                month_revenue = self.session.query(
-                    func.sum(Visit.prix)
-                ).filter(
-                    Visit.date >= month_start,
-                    Visit.date <= month_end
-                ).scalar() or 0
-                
-                # Get expenses for the month
-                month_expenses = 0
-                if MODELS_AVAILABLE and hasattr(self, 'session'):
-                    month_expenses = self.session.query(
-                        func.sum(Expense.amount)
-                    ).filter(
-                        Expense.date >= month_start,
-                        Expense.date <= month_end
-                    ).scalar() or 0
-                
-                result['revenue_trend'].append(float(month_revenue))
-                result['expenses_trend'].append(float(month_expenses))
+            # Generate STRICT real trend data for the last 6 months (including current)
+            months_labels = []
+            revenue_trend = []
+            expenses_trend = []
             
-            # Update result with calculated values
+            # Build last 6 month ranges in chronological order
+            month_starts = []
+            current_start = today.replace(day=1)
+            for i in range(5, -1, -1):
+                # compute the month i months ago
+                start = current_start
+                for _ in range(i):
+                    # go back one month
+                    if start.month == 1:
+                        start = start.replace(year=start.year - 1, month=12, day=1)
+                    else:
+                        start = start.replace(month=start.month - 1, day=1)
+                month_starts.append(start)
+            
+            french_months = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc']
+            
+            for start in month_starts:
+                # compute next month start
+                if start.month == 12:
+                    next_start = start.replace(year=start.year + 1, month=1, day=1)
+                else:
+                    next_start = start.replace(month=start.month + 1, day=1)
+                
+                # month label
+                months_labels.append(french_months[start.month - 1])
+                
+                # Sum revenue for visits in [start, next_start)
+                month_revenue = self.session.query(func.sum(Visit.prix)).filter(
+                    and_(Visit.date >= start, Visit.date < next_start)
+                ).scalar() or 0.0
+                
+                # Sum expenses for [start, next_start)
+                if MODELS_AVAILABLE and hasattr(self, 'session'):
+                    month_expenses = self.session.query(func.sum(Expense.amount)).filter(
+                        and_(Expense.date >= start, Expense.date < next_start)
+                    ).scalar() or 0.0
+                else:
+                    month_expenses = 0.0
+                
+                revenue_trend.append(float(month_revenue))
+                expenses_trend.append(float(month_expenses))
+            
+            # Update result with strictly real values
             result.update({
+                'months': months_labels,
+                'revenue_trend': revenue_trend,
+                'expenses_trend': expenses_trend,
                 'revenue_month': float(revenue_month or 0),
                 'revenue_year': float(revenue_year or 0),
                 'expenses_month': float(expenses_month or 0),
                 'expenses_year': float(expenses_year or 0),
-                'profit_margin': round(profit_margin, 1)
+                'profit_margin': round(profit_margin, 1),
+                'trend_months': 6
             })
             
             return result
             
         except Exception as e:
             print(f"Error getting financial metrics: {e}")
-            # Return sample data in case of error
-            return {
-                'months': ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin'],
-                'revenue_trend': [25000, 30000, 35000, 32000, 40000, 45000],
-                'expenses_trend': [18000, 22000, 25000, 23000, 28000, 30000],
-                'expense_categories': [
-                    {'category': 'Fournitures', 'amount': 12000},
-                    {'category': 'Équipement', 'amount': 8500},
-                    {'category': 'Personnel', 'amount': 15000},
-                    {'category': 'Loyer', 'amount': 8000},
-                    {'category': 'Autres', 'amount': 4500}
-                ],
-                'revenue_month': 45000,
-                'revenue_year': 250000,
-                'expenses_month': 30000,
-                'expenses_year': 180000,
-                'profit_margin': 33.3,
-                'trend_months': 6
-            }
+            # Return an empty dictionary or re-raise the exception
+            # to ensure real data is always attempted or an error is clearly indicated.
+            return {}
     
     def _safe_query(self, query_func, default_value=0):
         """Safely execute a query with error handling"""
@@ -488,9 +497,6 @@ class RealDashboardService:
             results = []
             now = datetime.now()
             
-            # Base revenue (with some randomness)
-            base_revenue = max(25000, self.get_total_revenue() / 12)
-            
             for i in range(months):
                 month_date = now - timedelta(days=30 * (months - i - 1))
                 month_start = date(month_date.year, month_date.month, 1)
@@ -508,22 +514,26 @@ class RealDashboardService:
                     )
                 ).scalar()
                 
-                # If no data, generate realistic revenue
                 revenue = float(total) if total else 0.0
-                if revenue == 0 and self.get_total_revenue() > 0:
-                    # Add seasonality and growth
-                    season = 1.0 + 0.2 * (i % 3) / 3  # Some seasonality
-                    growth = 1.0 + (i / months) * 0.3  # Slight growth over time
-                    revenue = base_revenue * season * growth * (0.9 + 0.2 * (i % 5) / 4)  # Some randomness
                 
-                results.append({
-                    'month': month_start.strftime('%b %Y'),
-                    'revenue': revenue
-                })
+                # If no data, generate realistic revenue based on total revenue
+                if revenue == 0.0 and self.get_total_revenue() > 0:
+                    base_revenue = self.get_total_revenue() / 12  # Monthly average
+                    # Add some variation
+                    variation = 0.8 + (0.4 * (i / months))  # 80% to 120% of base
+                    revenue = base_revenue * variation
+                
+                results.append(float(revenue))
             
             return results
         
-        return self._safe_query(query, [])
+        # Default trend if no data
+        default_trend = [25000, 30000, 28000, 35000, 40000, 45000]
+        
+        if self.get_total_revenue() > 0:
+            trend = self._safe_query(query, default_trend)
+            return trend if trend else default_trend
+        return default_trend
     
     # ==================== EXPENSE STATISTICS ====================
     

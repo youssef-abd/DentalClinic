@@ -99,7 +99,7 @@ class PatientListWidget(QWidget):
         # Action buttons
         button_layout = QHBoxLayout()
         
-        self.add_patient_btn = QPushButton("➕ Nouveau Patient")
+        self.add_patient_btn = QPushButton("Nouveau Patient")
         self.add_patient_btn.clicked.connect(self.add_patient)
         self.add_patient_btn.setStyleSheet("""
             QPushButton {
@@ -220,19 +220,19 @@ class PatientListWidget(QWidget):
         actions_group = QGroupBox("Actions Rapides")
         actions_layout = QVBoxLayout(actions_group)
         
-        self.view_details_btn = QPushButton("👁 Voir Détails")
+        self.view_details_btn = QPushButton("Voir Détails")
         self.view_details_btn.clicked.connect(self.view_patient_details)
         self.view_details_btn.setEnabled(False)
         
-        self.edit_patient_btn = QPushButton("✏ Modifier")
+        self.edit_patient_btn = QPushButton("Modifier")
         self.edit_patient_btn.clicked.connect(self.edit_patient)
         self.edit_patient_btn.setEnabled(False)
         
-        self.add_visit_btn = QPushButton("➕ Nouvelle Visite")
+        self.add_visit_btn = QPushButton("Nouvelle Visite")
         self.add_visit_btn.clicked.connect(self.add_visit)
         self.add_visit_btn.setEnabled(False)
         
-        self.delete_patient_btn = QPushButton("🗑 Supprimer")
+        self.delete_patient_btn = QPushButton("Supprimer")
         self.delete_patient_btn.clicked.connect(self.delete_patient)
         self.delete_patient_btn.setEnabled(False)
         self.delete_patient_btn.setStyleSheet("""
@@ -403,11 +403,11 @@ class PatientListWidget(QWidget):
         if self.table.itemAt(position):
             menu = QMenu(self)
             
-            view_action = menu.addAction("👁 Voir détails")
-            edit_action = menu.addAction("✏ Modifier")
-            visit_action = menu.addAction("➕ Nouvelle visite")
+            view_action = menu.addAction("Voir détails")
+            edit_action = menu.addAction("Modifier")
+            visit_action = menu.addAction("Nouvelle visite")
             menu.addSeparator()
-            delete_action = menu.addAction("🗑 Supprimer")
+            delete_action = menu.addAction("Supprimer")
             
             action = menu.exec_(self.table.mapToGlobal(position))
             

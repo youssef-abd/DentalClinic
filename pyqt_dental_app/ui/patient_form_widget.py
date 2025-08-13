@@ -265,7 +265,7 @@ class PatientFormWidget(QWidget):
         """)
         button_layout = QHBoxLayout(button_frame)
         
-        self.save_btn = QPushButton("💾 Enregistrer")
+        self.save_btn = QPushButton("Enregistrer")
         self.save_btn.clicked.connect(self.save_patient)
         self.save_btn.setStyleSheet("""
             QPushButton {
@@ -282,7 +282,7 @@ class PatientFormWidget(QWidget):
             }
         """)
         
-        self.reset_btn = QPushButton("🔄 Réinitialiser")
+        self.reset_btn = QPushButton("Réinitialiser")
         self.reset_btn.clicked.connect(self.clear_form)
         self.reset_btn.setStyleSheet("""
             QPushButton {
@@ -299,7 +299,7 @@ class PatientFormWidget(QWidget):
             }
         """)
         
-        self.cancel_btn = QPushButton("❌ Annuler")
+        self.cancel_btn = QPushButton("Annuler")
         self.cancel_btn.clicked.connect(self.cancel_form)
         self.cancel_btn.setStyleSheet("""
             QPushButton {

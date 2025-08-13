@@ -692,10 +692,10 @@ class PatientDetailWidget(QWidget):
         if self.visits_table.itemAt(position):
             menu = QMenu(self)
             
-            edit_action = menu.addAction("✏ Modifier visite")
-            pay_action = menu.addAction("💰 Marquer comme payé")
+            edit_action = menu.addAction("Modifier visite")
+            pay_action = menu.addAction("Marquer comme payé")
             menu.addSeparator()
-            delete_action = menu.addAction("🗑 Supprimer visite")
+            delete_action = menu.addAction("Supprimer visite")
             
             action = menu.exec_(self.visits_table.mapToGlobal(position))
             

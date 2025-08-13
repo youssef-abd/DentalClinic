@@ -19,3 +19,7 @@ pyinstaller==5.13.2
 
 # Invoice generation
 python-docx==0.8.11
+
+#dahsboard requirements
+matplotlib>=3.5.0
+numpy>=1.21.0

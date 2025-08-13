@@ -178,7 +178,7 @@ class UnpaidBalancesWidget(QWidget):
         # Action buttons
         button_layout = QHBoxLayout()
         
-        self.refresh_btn = QPushButton("🔄 Actualiser")
+        self.refresh_btn = QPushButton("Actualiser")
         self.refresh_btn.clicked.connect(self.refresh_data)
         self.refresh_btn.setStyleSheet("""
             QPushButton {
@@ -194,7 +194,7 @@ class UnpaidBalancesWidget(QWidget):
             }
         """)
         
-        self.export_btn = QPushButton("📊 Exporter")
+        self.export_btn = QPushButton("Exporter")
         self.export_btn.clicked.connect(self.export_data)
         self.export_btn.setStyleSheet("""
             QPushButton {
@@ -554,14 +554,14 @@ class UnpaidBalancesWidget(QWidget):
             unique_patients = len(set(visit.patient_id for visit in self.filtered_visits))
             
             summary_text = (
-                f"📊 Résumé: {total_visits} visites impayées • "
+                f"Résumé: {total_visits} visites impayées • "
                 f"{unique_patients} patients concernés • "
                 f"Total: {total_amount:.2f} DH • "
                 f"Moyenne: {avg_amount:.2f} DH • "
                 f"Maximum: {max_amount:.2f} DH"
             )
         else:
-            summary_text = "✅ Aucune visite impayée trouvée avec les filtres actuels"
+            summary_text = "Aucune visite impayée trouvée avec les filtres actuels"
         
         self.summary_stats.setText(summary_text)
     
@@ -635,10 +635,10 @@ class UnpaidBalancesWidget(QWidget):
         if self.table.itemAt(position):
             menu = QMenu(self)
             
-            view_patient_action = menu.addAction("👁 Voir patient")
-            edit_visit_action = menu.addAction("✏ Modifier visite")
-            mark_paid_action = menu.addAction("💰 Marquer comme payé")
-            add_payment_action = menu.addAction("💵 Ajouter paiement")
+            view_patient_action = menu.addAction("Voir patient")
+            edit_visit_action = menu.addAction("Modifier visite")
+            mark_paid_action = menu.addAction("Marquer comme payé")
+            add_payment_action = menu.addAction("Ajouter paiement")
             
             action = menu.exec_(self.table.mapToGlobal(position))
             

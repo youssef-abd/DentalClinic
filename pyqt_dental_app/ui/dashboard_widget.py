@@ -201,14 +201,15 @@ class DashboardWidget(QWidget):
         # Header with icon and title
         header = QHBoxLayout()
         
-        # Icon (using text as emoji for now)
-        icon_label = QLabel(icon_name)
-        icon_label.setStyleSheet("font-size: 20px;")
-        
         title_label = QLabel(title)
         title_label.setObjectName("title")
         
-        header.addWidget(icon_label)
+        if icon_name:
+            # Icon (using text as emoji for now)
+            icon_label = QLabel(icon_name)
+            icon_label.setStyleSheet("font-size: 20px;")
+            header.addWidget(icon_label)
+        
         header.addWidget(title_label)
         header.addStretch()
         
@@ -244,7 +245,7 @@ class DashboardWidget(QWidget):
         charts_layout.setSpacing(20)  # Add spacing
         
         # Section title
-        title = QLabel("📊 Analyses Graphiques")
+        title = QLabel("Analyses Graphiques")
         title.setStyleSheet("font-size: 20px; font-weight: bold; color: #2c3e50; margin-bottom: 20px; padding: 10px;")
         charts_layout.addWidget(title)
         
@@ -344,7 +345,7 @@ class DashboardWidget(QWidget):
         layout = QVBoxLayout(frame)
         
         # Title
-        title = QLabel("📅 Prochains Rendez-vous")
+        title = QLabel("Prochains Rendez-vous")
         title.setStyleSheet("font-size: 18px; font-weight: bold; color: #2c3e50; margin-bottom: 15px; padding: 5px;")
         layout.addWidget(title)
         
@@ -404,7 +405,7 @@ class DashboardWidget(QWidget):
         layout = QVBoxLayout(frame)
         
         # Title
-        title = QLabel("⚠️ Alertes Stock")
+        title = QLabel("Alertes Stock")
         title.setStyleSheet("font-size: 18px; font-weight: bold; color: #2c3e50; margin-bottom: 15px; padding: 5px;")
         layout.addWidget(title)
         
@@ -454,7 +455,7 @@ class DashboardWidget(QWidget):
                 # Get real data from service
                 data = self.dashboard_service.get_overview_data()
                 if data:
-                    print(f"📊 Dashboard data loaded: {len(data)} metrics")
+                    print(f"Dashboard data loaded: {len(data)} metrics")
                     
                     # Update metrics with real data
                     self.update_metrics(data)

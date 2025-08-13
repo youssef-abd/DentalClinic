@@ -133,7 +133,7 @@ class MainWindow(QMainWindow):
         # View menu
         view_menu = menubar.addMenu('Affichage')
         
-        dashboard_action = QAction('📊 Tableaux de Bord', self)
+        dashboard_action = QAction('Tableaux de Bord', self)
         dashboard_action.setShortcut('Ctrl+D')
         dashboard_action.triggered.connect(self.show_dashboards)
         view_menu.addAction(dashboard_action)
@@ -183,12 +183,12 @@ class MainWindow(QMainWindow):
         # Inventory menu
         inventory_menu = menubar.addMenu('Stocks')
         
-        manage_inventory_action = QAction('📦 Gestion des Stocks', self)
+        manage_inventory_action = QAction('Gestion des Stocks', self)
         manage_inventory_action.setShortcut('Ctrl+I')
         manage_inventory_action.triggered.connect(self.show_inventory)
         inventory_menu.addAction(manage_inventory_action)
         
-        low_stock_action = QAction('⚠️ Stock Faible', self)
+        low_stock_action = QAction('Stock Faible', self)
         low_stock_action.triggered.connect(self.show_low_stock)
         inventory_menu.addAction(low_stock_action)
         
@@ -203,7 +203,7 @@ class MainWindow(QMainWindow):
         tools_menu.addAction(search_action)
         # Add this in the tools_menu section of create_menu_bar
         # Add sync action
-        sync_action = QAction('🔄 Synchroniser avec Supabase', self)
+        sync_action = QAction('Synchroniser avec Supabase', self)
         sync_action.setShortcut('Ctrl+S')
         sync_action.triggered.connect(self.sync_to_supabase)
         tools_menu.addAction(sync_action)
@@ -218,7 +218,7 @@ class MainWindow(QMainWindow):
         # Expenses menu
         expenses_menu = menubar.addMenu('Dépenses')
         
-        manage_expenses_action = QAction('💰 Gestion des Dépenses', self)
+        manage_expenses_action = QAction('Gestion des Dépenses', self)
         manage_expenses_action.setShortcut('Ctrl+D')
         manage_expenses_action.triggered.connect(self.show_expenses)
         expenses_menu.addAction(manage_expenses_action)
@@ -242,7 +242,7 @@ class MainWindow(QMainWindow):
         toolbar.setMovable(False)
         
         # Dashboard button
-        dashboard_btn = QPushButton('📊 Tableau de Bord')
+        dashboard_btn = QPushButton(' Tableau de Bord')
         dashboard_btn.setToolTip('Afficher les tableaux de bord')
         dashboard_btn.clicked.connect(self.show_dashboards)
         toolbar.addWidget(dashboard_btn)
@@ -251,12 +251,12 @@ class MainWindow(QMainWindow):
         toolbar.addSeparator()
         
         # Patient management buttons
-        patients_btn = QPushButton('👥 Patients')
+        patients_btn = QPushButton(' Patients')
         patients_btn.setToolTip('Gestion des patients')
         patients_btn.clicked.connect(self.show_patient_list)
         toolbar.addWidget(patients_btn)
         
-        add_patient_btn = QPushButton('➕ Nouveau Patient')
+        add_patient_btn = QPushButton(' Nouveau Patient')
         add_patient_btn.setToolTip('Ajouter un nouveau patient')
         add_patient_btn.clicked.connect(self.show_add_patient)
         toolbar.addWidget(add_patient_btn)
@@ -265,12 +265,12 @@ class MainWindow(QMainWindow):
         toolbar.addSeparator()
         
         # Financial buttons
-        unpaid_btn = QPushButton('💰 Impayés')
+        unpaid_btn = QPushButton(' Impayés')
         unpaid_btn.setToolTip('Voir les soldes impayés')
         unpaid_btn.clicked.connect(self.show_unpaid_balances)
         toolbar.addWidget(unpaid_btn)
         
-        expenses_btn = QPushButton('💸 Dépenses')
+        expenses_btn = QPushButton(' Dépenses')
         expenses_btn.setToolTip('Gestion des dépenses')
         expenses_btn.clicked.connect(self.show_expenses)
         toolbar.addWidget(expenses_btn)
@@ -279,7 +279,7 @@ class MainWindow(QMainWindow):
         toolbar.addSeparator()
         
         # Inventory button
-        inventory_btn = QPushButton('📦 Inventaire')
+        inventory_btn = QPushButton('Inventaire')
         inventory_btn.setToolTip('Gestion de l\'inventaire')
         inventory_btn.clicked.connect(self.show_inventory)
         toolbar.addWidget(inventory_btn)
@@ -289,7 +289,7 @@ class MainWindow(QMainWindow):
         toolbar.addSeparator()
         
         # Sync button
-        sync_btn = QPushButton('🔄 Synchroniser')
+        sync_btn = QPushButton('Synchroniser')
         sync_btn.setToolTip('Synchroniser avec Supabase')
         sync_btn.clicked.connect(self.sync_to_supabase)
         toolbar.addWidget(sync_btn)
@@ -304,7 +304,7 @@ class MainWindow(QMainWindow):
         self.user_label.setStyleSheet("color: white; font-weight: bold; padding: 5px;")
         toolbar.addWidget(self.user_label)
         
-        logout_btn = QPushButton('🚪 Déconnexion')
+        logout_btn = QPushButton('Déconnexion')
         logout_btn.clicked.connect(self.logout)
         toolbar.addWidget(logout_btn)
     
@@ -391,7 +391,7 @@ class MainWindow(QMainWindow):
                 session = None
                 if hasattr(self, 'db_manager') and self.db_manager:
                     session = self.db_manager.get_session()
-                    print("✅ Database session created for dashboards")
+                    print("Database session created for dashboards")
                 
                 self.dashboard_widget = MainDashboardWidget(
                     parent=self,
@@ -401,7 +401,7 @@ class MainWindow(QMainWindow):
                     expense_service=self.expense_service
                 )
                 self.dashboard_index = self.stacked_widget.addWidget(self.dashboard_widget)
-                print("✅ Dashboard widget created with real data connection")
+                print("Dashboard widget created with real data connection")
             except Exception as e:
                 print(f"Error creating dashboard widget: {e}")
                 # Create a simple error widget

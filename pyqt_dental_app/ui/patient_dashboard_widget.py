@@ -108,59 +108,45 @@ class PatientDashboardWidget(QWidget):
         
         header_layout = QHBoxLayout(header_frame)
         
-        title = QLabel("👥 Tableau de Bord Patients")
+        title = QLabel("Tableau de Bord Patients")
         title.setStyleSheet("font-size: 24px; font-weight: bold; color: white;")
         header_layout.addWidget(title)
         
         header_layout.addStretch()
         
-        # Quick actions
-        new_patient_btn = QPushButton("+ Nouveau Patient")
-        new_patient_btn.setStyleSheet("""
-            QPushButton {
-                background-color: rgba(255, 255, 255, 0.2);
-                color: white;
-                border: 2px solid rgba(255, 255, 255, 0.3);
-                border-radius: 8px;
-                padding: 10px 20px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: rgba(255, 255, 255, 0.3);
-            }
-        """)
-        header_layout.addWidget(new_patient_btn)
-        
         layout.addWidget(header_frame)
     
     def create_metrics_section(self, layout):
         """Create patient metrics cards matching financial dashboard style"""
-        # Create a container frame with a light background
+        # Create a container frame with a light background matching financial dashboard
         metrics_frame = QFrame()
         metrics_frame.setStyleSheet("""
             QFrame {
                 background-color: #f8f9fa;
-                border-radius: 8px;
-                padding: 15px;
+                border-radius: 10px;
+                padding: 20px;
+                border: 2px solid #e0e0e0;
+                margin: 10px 0;
             }
         """)
         
-        # Create a horizontal layout for the metrics
-        metrics_layout = QHBoxLayout(metrics_frame)
-        metrics_layout.setContentsMargins(5, 5, 5, 5)
-        metrics_layout.setSpacing(10)
+        # Use a grid layout for metrics to match financial dashboard (3 per row)
+        kpi_layout = QGridLayout(metrics_frame)
+        kpi_layout.setContentsMargins(10, 10, 10, 10)
+        kpi_layout.setHorizontalSpacing(10)
+        kpi_layout.setVerticalSpacing(10)
         
         # Metrics data (will be updated with real data)
         metrics = [
-            {'title': 'Total', 'value': '0', 'description': 'Patients enregistrés', 'icon': '👥', 'color': '#3498db'},
-            {'title': 'Ce Mois', 'value': '0', 'description': 'Nouveaux patients', 'icon': '📅', 'color': '#2ecc71'},
-            {'title': 'Par Mois', 'value': '0', 'description': 'Moyenne mensuelle', 'icon': '📈', 'color': '#9b59b6'},
-            {'title': 'Par An', 'value': '0', 'description': 'Moyenne annuelle', 'icon': '📊', 'color': '#e74c3c'},
-            {'title': 'Récents', 'value': '0', 'description': '7 derniers jours', 'icon': '⏱️', 'color': '#f39c12'}
+            {'title': 'Total', 'value': '0', 'description': 'Patients enregistrés', 'icon': '', 'color': '#3498db'},
+            {'title': 'Ce Mois', 'value': '0', 'description': 'Nouveaux patients', 'icon': '', 'color': '#2ecc71'},
+            {'title': 'Par Mois', 'value': '0', 'description': 'Moyenne mensuelle', 'icon': '', 'color': '#9b59b6'},
+            {'title': 'Par An', 'value': '0', 'description': 'Moyenne annuelle', 'icon': '', 'color': '#e74c3c'},
+            {'title': 'Récents', 'value': '0', 'description': '7 derniers jours', 'icon': '', 'color': '#f39c12'}
         ]
         
         # Create metric cards
-        for metric in metrics:
+        for idx, metric in enumerate(metrics):
             card = self.create_kpi_card(
                 metric['title'],
                 metric['value'],
@@ -168,36 +154,47 @@ class PatientDashboardWidget(QWidget):
                 metric['icon'],
                 metric['color']
             )
-            metrics_layout.addWidget(card)
+            row = idx // 3
+            col = idx % 3
+            kpi_layout.addWidget(card, row, col)
+        
+        # Stretch columns evenly
+        for i in range(3):
+            kpi_layout.setColumnStretch(i, 1)
         
         layout.addWidget(metrics_frame)
     
     def create_kpi_card(self, title, value, description, icon_name, color):
         """Create a professional KPI card matching financial dashboard style"""
         card = QFrame()
-        card.setStyleSheet(f"""
-            QFrame {{
+        card.setStyleSheet("""
+            QFrame {
                 background-color: white;
                 border-radius: 8px;
-                border: 1px solid #e0e0e0;
+                border: 2px solid #e0e0e0;
                 padding: 15px;
-                min-width: 200px;
-            }}
-            QLabel#title {{
-                color: #7f8c8d;
+                margin: 5px;
+            }
+            QFrame:hover {
+                border-color: #3498db;
+                box-shadow: 0 2px 8px rgba(52, 152, 219, 0.2);
+            }
+            QLabel#title {
+                color: #2c3e50;
                 font-size: 14px;
-                font-weight: 500;
-            }}
-            QLabel#value {{
-                color: {color};
+                font-weight: bold;
+            }
+            QLabel#value {
+                color: #27ae60;
                 font-size: 24px;
                 font-weight: bold;
                 margin: 5px 0;
-            }}
-            QLabel#description {{
+            }
+            QLabel#description {
                 color: #7f8c8d;
                 font-size: 12px;
-            }}
+                font-weight: 500;
+            }
         """)
         
         layout = QVBoxLayout(card)
@@ -207,21 +204,21 @@ class PatientDashboardWidget(QWidget):
         # Header with icon and title
         header = QHBoxLayout()
         header.setSpacing(10)
-        header.setSpacing(10)
-        
-        # Icon
-        icon_label = QLabel(icon_name)
-        icon_label.setStyleSheet(f"""
-            font-size: 20px;
-            color: {color};
-            font-weight: bold;
-        """)
         
         # Title
         title_label = QLabel(title)
         title_label.setObjectName("title")
         
-        header.addWidget(icon_label)
+        if icon_name:
+            # Icon
+            icon_label = QLabel(icon_name)
+            icon_label.setStyleSheet(f"""
+                font-size: 20px;
+                color: {color};
+                font-weight: bold;
+            """)
+            header.addWidget(icon_label)
+        
         header.addWidget(title_label)
         header.addStretch()
         

@@ -20,14 +20,16 @@ except ImportError:
     print("⚠️ Le module scipy n'est pas installé. Certaines fonctionnalités avancées seront désactivées.")
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
-from ..services.dashboard_data_service import FinancialDashboardService
+
+from ..services.dashboard_service_real import RealDashboardService
 
 class FinancialDashboardWidget(QWidget):
     """Financial dashboard for revenue, expenses, and profit analysis"""
     
     def __init__(self, dashboard_service=None, parent=None):
         super().__init__(parent)
-        self.dashboard_service = dashboard_service
+        # Use RealDashboardService if none provided
+        self.dashboard_service = dashboard_service or RealDashboardService()
         self.init_ui()
         self.load_data()
     
@@ -132,25 +134,11 @@ class FinancialDashboardWidget(QWidget):
         header_layout = QHBoxLayout(header_frame)
         
         # Title
-        title = QLabel("💰 Tableau de Bord Financier")
+        title = QLabel("Tableau de Bord Financier")
         title.setStyleSheet("font-size: 24px; font-weight: bold; color: white;")
         header_layout.addWidget(title)
         
         header_layout.addStretch()
-        
-        # Period selector
-        period_combo = QComboBox()
-        period_combo.addItems(["Ce mois", "3 derniers mois", "6 derniers mois", "Cette année"])
-        period_combo.setStyleSheet("""
-            QComboBox {
-                background-color: white;
-                border: none;
-                border-radius: 5px;
-                padding: 8px 12px;
-                font-size: 14px;
-            }
-        """)
-        header_layout.addWidget(period_combo)
         
         layout.addWidget(header_frame)
     
@@ -194,14 +182,15 @@ class FinancialDashboardWidget(QWidget):
         # Header with icon and title
         header = QHBoxLayout()
         
-        # Icon (using text as emoji for now)
-        icon_label = QLabel(icon_name)
-        icon_label.setStyleSheet("font-size: 20px;")
-        
         title_label = QLabel(title)
         title_label.setObjectName("title")
         
-        header.addWidget(icon_label)
+        if icon_name:
+            # Icon (using text as emoji for now)
+            icon_label = QLabel(icon_name)
+            icon_label.setStyleSheet("font-size: 20px;")
+            header.addWidget(icon_label)
+        
         header.addWidget(title_label)
         header.addStretch()
         
@@ -271,19 +260,19 @@ class FinancialDashboardWidget(QWidget):
         
         # Revenue KPIs
         self.revenue_month = self.create_kpi_card(
-            "Revenus du Mois", "0 DH", "Mois en cours", "💰")
+            "Revenus du Mois", "0 DH", "Mois en cours", "")
         self.revenue_year = self.create_kpi_card(
-            "Revenus Annuels", "0 DH", "Cette année", "📊")
+            "Revenus Annuels", "0 DH", "Cette année", "")
         
         # Expenses KPIs
         self.expenses_month = self.create_kpi_card(
-            "Dépenses du Mois", "0 DH", "Mois en cours", "💸")
+            "Dépenses du Mois", "0 DH", "Mois en cours", "")
         self.expenses_year = self.create_kpi_card(
-            "Dépenses Annuelles", "0 DH", "Cette année", "📉")
+            "Dépenses Annuelles", "0 DH", "Cette année", "")
         
         # Additional financial metrics
         self.profit_margin = self.create_kpi_card(
-            "Marge Bénéficiaire", "0%", "Mois en cours", "📈")
+            "Marge Bénéficiaire", "0%", "Mois en cours", "")
         
         # Arrange KPI cards in a flexible 3-column grid to reduce width
         kpi_cards = [
@@ -414,9 +403,17 @@ class FinancialDashboardWidget(QWidget):
         ax = fig.add_subplot(111)
         
         # Sample data - replace with real data
-        months = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin']
-        revenue = [25000, 30000, 35000, 32000, 40000, 45000]
-        expenses = [18000, 22000, 25000, 23000, 28000, 30000]
+        try:
+            financial_data = self.dashboard_service.get_financial_metrics() if self.dashboard_service else {}
+            months = financial_data.get('months', ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin'])[:6]
+            revenue = financial_data.get('revenue_trend', [25000, 30000, 35000, 32000, 40000, 45000])[:6]
+            expenses = financial_data.get('expenses_trend', [18000, 22000, 25000, 23000, 28000, 30000])[:6]
+        except Exception as e:
+            print(f"Error loading real data: {e}")
+            # Fallback to sample data
+            months = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin']
+            revenue = [25000, 30000, 35000, 32000, 40000, 45000]
+            expenses = [18000, 22000, 25000, 23000, 28000, 30000]
         
         # Smaller bars with adjusted appearance
         bar_width = 0.3
@@ -447,8 +444,19 @@ class FinancialDashboardWidget(QWidget):
         ax = fig.add_subplot(111)
         
         # Sample data - replace with real data
-        categories = ['Fournitures', 'Loyer', 'Salaire', 'Équipement', 'Autres']
-        amounts = [15000, 25000, 45000, 20000, 10000]
+        try:
+            financial_data = self.dashboard_service.get_financial_metrics() if self.dashboard_service else {}
+            expense_categories = financial_data.get('expense_categories', [])
+            if expense_categories:
+                categories = [cat.get('category', 'Autre') for cat in expense_categories]
+                amounts = [cat.get('amount', 0) for cat in expense_categories]
+            else:
+                categories = ['Fournitures', 'Loyer', 'Salaire', 'Équipement', 'Autres']
+                amounts = [15000, 25000, 45000, 20000, 10000]
+        except Exception as e:
+            print(f"Error loading expense categories: {e}")
+            categories = ['Fournitures', 'Loyer', 'Salaire', 'Équipement', 'Autres']
+            amounts = [15000, 25000, 45000, 20000, 10000]
         colors = ['#3498db', '#2ecc71', '#9b59b6', '#f1c40f', '#e74c3c']
         
         # Smaller pie chart with adjusted appearance
@@ -494,8 +502,15 @@ class FinancialDashboardWidget(QWidget):
         canvas.setMinimumHeight(336)
         canvas.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         ax = fig.add_subplot(111)
-        months = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin']
-        amounts = [25000, 30000, 35000, 32000, 40000, 45000]
+        # Sample data - replace with real data
+        try:
+            financial_data = self.dashboard_service.get_financial_metrics() if self.dashboard_service else {}
+            months = financial_data.get('months', ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin'])[:6]
+            amounts = financial_data.get('revenue_trend', [25000, 30000, 35000, 32000, 40000, 45000])[:6]
+        except Exception as e:
+            print(f"Error loading real data for revenue bar chart: {e}")
+            months = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin']
+            amounts = [25000, 30000, 35000, 32000, 40000, 45000]
         bars = ax.bar(months, amounts, color='#3498db', alpha=0.85)
         ax.set_title('Revenus des 6 Derniers Mois')
         ax.set_ylabel('Revenus (MAD)')
@@ -561,11 +576,7 @@ class FinancialDashboardWidget(QWidget):
         except Exception as e:
             print(f"Error updating charts: {e}")
             
-            # Update the expenses trend chart
-            self.update_expenses_trend(data)
-            
-        except Exception as e:
-            print(f"Error updating charts: {e}")
+
     
     def update_revenue_vs_expenses(self, data):
         """Update the revenue vs expenses chart with real data"""
