@@ -10,6 +10,7 @@ from PyQt5.QtCore import Qt, pyqtSignal, QThread, QObject
 from PyQt5.QtGui import QFont, QColor, QBrush
 import os
 import subprocess
+import sys
 from datetime import datetime
 
 class InvoiceGenerationWorker(QObject):
@@ -504,19 +505,34 @@ class InvoiceWidget(QWidget):
         try:
             if os.name == 'nt':  # Windows
                 os.startfile(file_path)
-            elif os.name == 'posix':  # macOS and Linux
-                subprocess.run(['xdg-open', file_path], check=True)
+            elif sys.platform == 'darwin':  # macOS
+                subprocess.Popen(['open', file_path])
+            else:  # Linux and other POSIX
+                subprocess.Popen(['xdg-open', file_path])
         except Exception as e:
-            QMessageBox.warning(self, "Attention", f"Impossible d'ouvrir le fichier: {str(e)}")
+            # Only warn if file truly doesn't exist; otherwise ignore spurious errors
+            if not os.path.exists(file_path):
+                QMessageBox.warning(self, "Attention", f"Impossible d'ouvrir le fichier: {str(e)}")
     
     def open_folder(self, folder_path):
         """Open the folder containing the file"""
         try:
-            # Normalize path separators for Windows
+            if not os.path.isdir(folder_path):
+                QMessageBox.warning(self, "Attention", "Le dossier n'existe pas.")
+                return
+            # Use non-blocking calls and avoid strict return code checks to prevent false errors
             if os.name == 'nt':  # Windows
                 folder_path = folder_path.replace('/', '\\')
-                subprocess.run(['explorer', folder_path], check=True)
-            elif os.name == 'posix':  # macOS and Linux
-                subprocess.run(['xdg-open', folder_path], check=True)
+                try:
+                    os.startfile(folder_path)
+                except Exception:
+                    # Fallback to explorer without check
+                    subprocess.Popen(['explorer', folder_path])
+            elif sys.platform == 'darwin':  # macOS
+                subprocess.Popen(['open', folder_path])
+            else:  # Linux and other POSIX
+                subprocess.Popen(['xdg-open', folder_path])
         except Exception as e:
-            QMessageBox.warning(self, "Attention", f"Impossible d'ouvrir le dossier: {str(e)}") 
+            # Do not show a popup if the OS likely opened the folder but returned a non-zero code
+            # Only log to console to avoid disturbing UX
+            print(f"Warning: unable to open folder '{folder_path}': {e}") 

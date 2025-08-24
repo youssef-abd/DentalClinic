@@ -9,7 +9,7 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                             QHeaderView)
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QFont, QColor
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
@@ -18,12 +18,16 @@ from matplotlib.figure import Figure
 # Use a non-interactive backend to avoid threading issues
 matplotlib.use('Agg')
 
+from ..services.dashboard_service_real import RealDashboardService
+from sqlalchemy import func
+from ..models.database import DatabaseManager, Patient
+
 class PatientDashboardWidget(QWidget):
     """Patient analytics dashboard"""
     
     def __init__(self, dashboard_service=None, parent=None):
         super().__init__(parent)
-        self.dashboard_service = dashboard_service
+        self.dashboard_service = dashboard_service or RealDashboardService()
         self.init_ui()
         self.load_data()
     
@@ -154,6 +158,9 @@ class PatientDashboardWidget(QWidget):
                 metric['icon'],
                 metric['color']
             )
+            if not hasattr(self, 'metric_cards'):
+                self.metric_cards = []
+            self.metric_cards.append(card)
             row = idx // 3
             col = idx % 3
             kpi_layout.addWidget(card, row, col)
@@ -235,6 +242,8 @@ class PatientDashboardWidget(QWidget):
         layout.addWidget(value_label)
         layout.addWidget(desc_label)
         
+        # expose value label for updates
+        card.value_label = value_label
         return card
     
     def create_metric_card(self, title, value, icon, color):
@@ -321,22 +330,9 @@ class PatientDashboardWidget(QWidget):
         
         ax = fig.add_subplot(111)
         ax.set_title('Nouveaux Patients par Mois', fontweight='bold')
-        
-        months = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin']
-        new_patients = [12, 18, 15, 22, 16, 18]
-        
-        ax.plot(months, new_patients, marker='o', linewidth=3, 
-               color='#8e44ad', markersize=8)
-        ax.fill_between(months, new_patients, alpha=0.3, color='#8e44ad')
-        
+        ax.text(0.5, 0.5, 'Chargement des données...', ha='center', va='center', transform=ax.transAxes, color='#666')
         ax.set_ylabel('Nouveaux Patients')
         ax.grid(True, alpha=0.3)
-        
-        # Add value labels
-        for i, patients in enumerate(new_patients):
-            ax.annotate(str(patients), (i, patients), textcoords="offset points", 
-                       xytext=(0,10), ha='center', fontsize=10, fontweight='bold')
-        
         fig.tight_layout()
         return canvas
     
@@ -348,9 +344,9 @@ class PatientDashboardWidget(QWidget):
             ax = fig.add_subplot(111)
             ax.set_title('Répartition par Genre', fontweight='bold')
             
-            # Default values in case data loading fails
-            genders = ['Hommes', 'Femmes', 'Autres']
-            counts = [120, 150, 30]
+            # Use only real data; no defaults
+            genders = []
+            counts = []
             colors = ['#3498db', '#e83e8c', '#6c757d']
             
             # Try to get real data if service is available
@@ -418,43 +414,62 @@ class PatientDashboardWidget(QWidget):
             return canvas
         
     def create_age_distribution_chart(self):
-        """Create age distribution chart"""
+        """Create age distribution chart (real data only)"""
         fig = Figure(figsize=(6, 4), dpi=100)
         canvas = FigureCanvas(fig)
         
         ax = fig.add_subplot(111)
         ax.set_title('Répartition par Âge', fontweight='bold')
         
-        # Default values in case data loading fails
-        age_groups = ['0-18', '19-35', '36-50', '51-65', '65+']
-        counts = [45, 78, 65, 42, 17]
-        
-        # Try to get real data if service is available
-        if hasattr(self, 'dashboard_service') and self.dashboard_service:
+        # Compute from database
+        try:
+            session, owned = self._get_session()
+            rows = session.query(Patient.date_naissance).filter(Patient.date_naissance.isnot(None)).all()
+            age_counts = {'0-18': 0, '19-35': 0, '36-50': 0, '51-65': 0, '65+': 0}
+            today = date.today()
+            for (dob,) in rows:
+                try:
+                    age = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
+                    if age <= 18:
+                        age_counts['0-18'] += 1
+                    elif age <= 35:
+                        age_counts['19-35'] += 1
+                    elif age <= 50:
+                        age_counts['36-50'] += 1
+                    elif age <= 65:
+                        age_counts['51-65'] += 1
+                    else:
+                        age_counts['65+'] += 1
+                except Exception:
+                    continue
+            labels = list(age_counts.keys())
+            counts = list(age_counts.values())
+        except Exception as e:
+            print(f"Error loading age distribution: {e}")
+            labels, counts = [], []
+        finally:
             try:
-                age_data = self.dashboard_service.get_patients_by_age_group()
-                if age_data:
-                    age_groups = list(age_data.keys())
-                    counts = list(age_data.values())
-            except Exception as e:
-                print(f"Error loading age data: {e}")
+                if 'owned' in locals() and owned:
+                    session.close()
+            except Exception:
+                pass
         
-        colors = ['#3498db', '#2ecc71', '#f39c12', '#e74c3c', '#9b59b6']
-        
-        wedges, texts, autotexts = ax.pie(counts, labels=age_groups, colors=colors,
-                                         autopct='%1.1f%%', startangle=90,
-                                         wedgeprops=dict(width=0.4, edgecolor='w'))
-        
-        for autotext in autotexts:
-            autotext.set_color('white')
-            autotext.set_fontweight('bold')
-            
-        # Add total count in the center
-        total = sum(counts)
-        centre_circle = plt.Circle((0,0), 0.2, fc='white')
-        ax.add_artist(centre_circle)
-        ax.text(0, 0, f"Total\n{total}", ha='center', va='center', 
-                fontsize=14, fontweight='bold', color='#2c3e50')
+        if counts and any(c > 0 for c in counts):
+            colors = ['#3498db', '#2ecc71', '#f39c12', '#e74c3c', '#9b59b6']
+            wedges, texts, autotexts = ax.pie(counts, labels=labels, colors=colors,
+                                             autopct='%1.1f%%', startangle=90,
+                                             wedgeprops=dict(width=0.4, edgecolor='w'))
+            for autotext in autotexts:
+                autotext.set_color('white')
+                autotext.set_fontweight('bold')
+            total = sum(counts)
+            centre_circle = plt.Circle((0,0), 0.2, fc='white')
+            ax.add_artist(centre_circle)
+            ax.text(0, 0, f"Total\n{total}", ha='center', va='center', 
+                    fontsize=14, fontweight='bold', color='#2c3e50')
+        else:
+            ax.text(0.5, 0.5, 'Aucune donnée disponible', 
+                    ha='center', va='center', fontsize=12, color='#666')
         
         fig.tight_layout()
         return canvas
@@ -463,66 +478,129 @@ class PatientDashboardWidget(QWidget):
         """Create patient insights section"""
         # This method is kept as a placeholder in case we want to add other insights later
         pass
+
+    def _get_session(self):
+        """Return a SQLAlchemy session and whether we own it"""
+        try:
+            if hasattr(self, 'dashboard_service') and hasattr(self.dashboard_service, 'session') and self.dashboard_service.session:
+                return self.dashboard_service.session, False
+        except Exception:
+            pass
+        dbm = DatabaseManager()
+        return dbm.get_session(), True
+
+    def _month_labels_and_counts(self, months=6):
+        """Compute month labels and patient registration counts for the last N months"""
+        session, owned = self._get_session()
+        try:
+            # Build list of (year, month) for last N months oldest->newest
+            today = date.today()
+            ym_list = []
+            y, m = today.year, today.month
+            for i in range(months - 1, -1, -1):
+                yy, mm = y, m
+                for _ in range(i):
+                    if mm == 1:
+                        yy -= 1
+                        mm = 12
+                    else:
+                        mm -= 1
+                ym_list.append((yy, mm))
+
+            # Start date = first day of first month in range
+            start_year, start_month = ym_list[0]
+            start_date = date(start_year, start_month, 1)
+
+            # Query counts grouped by year-month using SQLite strftime
+            rows = session.query(
+                func.strftime('%Y-%m', Patient.created_at).label('ym'),
+                func.count(Patient.id)
+            ).filter(
+                Patient.created_at >= start_date
+            ).group_by('ym').all()
+            counts_by_ym = {row[0]: int(row[1] or 0) for row in rows}
+
+            french_months = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc']
+            labels = []
+            counts = []
+            for yy, mm in ym_list:
+                ym_key = f"{yy}-{mm:02d}"
+                labels.append(french_months[mm - 1])
+                counts.append(int(counts_by_ym.get(ym_key, 0)))
+            return labels, counts
+        finally:
+            if owned:
+                session.close()
     
     def load_data(self):
-        """Load patient data"""
+        """Load patient data from the real database"""
         try:
-            if hasattr(self, 'dashboard_service') and self.dashboard_service:
-                # Get patient counts
-                total_patients = self.dashboard_service.get_total_patients()
-                new_patients = self.dashboard_service.get_new_patients_this_month()
-                monthly_visits = self.dashboard_service.get_monthly_visits()
-                
-                # Update metrics - find labels with the metric_value property
-                value_labels = []
-                for label in self.findChildren(QLabel):
-                    if label.property("metric_value"):
-                        value_labels.append(label)
-                
-                if len(value_labels) >= 3:  # Make sure we have all metric labels
-                    value_labels[0].setText(str(total_patients))
-                    value_labels[1].setText(str(new_patients))
-                    value_labels[2].setText(str(monthly_visits))
-                
-                # Removed recent patients table update
-                
-                # Update registration chart
-                self.update_registration_chart()
-                
+            session, owned = self._get_session()
+
+            # Total patients
+            total_patients = session.query(func.count(Patient.id)).scalar() or 0
+
+            # New patients this month
+            month_start = date(datetime.now().year, datetime.now().month, 1)
+            new_patients = session.query(func.count(Patient.id)).filter(
+                Patient.created_at >= month_start
+            ).scalar() or 0
+
+            # Monthly and annual averages from grouped trend data
+            _, counts6 = self._month_labels_and_counts(months=6)
+            monthly_avg = int(round(sum(counts6) / max(1, len(counts6)))) if counts6 else 0
+
+            _, counts12 = self._month_labels_and_counts(months=12)
+            annual_avg = int(round(sum(counts12) / max(1, len(counts12)))) if counts12 else 0
+
+            # Recent (last 7 days)
+            recent_start = (datetime.now() - timedelta(days=7)).date()
+            recent_7_days = session.query(func.count(Patient.id)).filter(
+                Patient.created_at >= recent_start
+            ).scalar() or 0
+
+            # Update metric cards: Total, Ce Mois, Par Mois, Par An, Récents
+            if hasattr(self, 'metric_cards') and len(self.metric_cards) >= 5:
+                values = [total_patients, new_patients, monthly_avg, annual_avg, recent_7_days]
+                for idx, val in enumerate(values):
+                    self.metric_cards[idx].value_label.setText(str(int(val)))
+
+            # Update registration chart
+            self.update_registration_chart()
+
         except Exception as e:
             print(f"Error loading patient data: {e}")
+        finally:
+            try:
+                if owned:
+                    session.close()
+            except Exception:
+                pass
 
     def update_registration_chart(self):
         """Update the registration chart with real data"""
         try:
-            if hasattr(self, 'dashboard_service') and self.dashboard_service:
-                # Get registration data for the last 6 months
-                reg_data = self.dashboard_service.get_patient_registration_trend(months=6)
-                
-                if reg_data and 'months' in reg_data and 'counts' in reg_data:
-                    # Update the chart with real data
-                    fig = self.reg_chart.figure
-                    fig.clear()
-                    ax = fig.add_subplot(111)
-                    
-                    ax.set_title('Nouveaux Patients par Mois', fontweight='bold')
-                    
-                    # Plot the data
-                    ax.plot(reg_data['months'], reg_data['counts'], 
-                           marker='o', linewidth=3, color='#8e44ad', markersize=8)
-                    ax.fill_between(reg_data['months'], reg_data['counts'], 
-                                  alpha=0.3, color='#8e44ad')
-                    
-                    ax.set_ylabel('Nouveaux Patients')
-                    ax.grid(True, alpha=0.3)
-                    
-                    # Add value labels
-                    for i, count in enumerate(reg_data['counts']):
-                        ax.annotate(str(count), (i, count), textcoords="offset points", 
-                                   xytext=(0,10), ha='center', fontsize=10, fontweight='bold')
-                    
-                    fig.tight_layout()
-                    self.reg_chart.draw()
-                    
+            # Compute grouped data directly from DB
+            months, counts = self._month_labels_and_counts(months=6)
+
+            fig = self.reg_chart.figure
+            fig.clear()
+            ax = fig.add_subplot(111)
+            ax.set_title('Nouveaux Patients par Mois', fontweight='bold')
+            ax.set_ylabel('Nouveaux Patients')
+            ax.grid(True, alpha=0.3)
+
+            if counts and any(c > 0 for c in counts):
+                ax.plot(months, counts, marker='o', linewidth=3, color='#8e44ad', markersize=8)
+                ax.fill_between(months, counts, alpha=0.3, color='#8e44ad')
+                for i, count in enumerate(counts):
+                    ax.annotate(str(count), (i, count), textcoords="offset points",
+                                xytext=(0, 10), ha='center', fontsize=10, fontweight='bold')
+            else:
+                ax.text(0.5, 0.5, 'Aucune donnée disponible', ha='center', va='center', transform=ax.transAxes, color='#666')
+
+            fig.tight_layout()
+            self.reg_chart.draw()
+
         except Exception as e:
             print(f"Error updating registration chart: {e}")

@@ -182,7 +182,7 @@ class InvoiceService:
         self.add_invoice_title(doc)
         
         # Add patient information
-        self.add_patient_info(doc, invoice_data["patient"])
+        self.add_patient_info(doc, invoice_data["patient"], invoice_data["visits"])
         
         # Add totals section (simple format like the template)
         self.add_totals_section(doc, invoice_data["totals"])
@@ -237,32 +237,24 @@ class InvoiceService:
         
         doc.add_paragraph()
     
-    def add_patient_info(self, doc: 'Document', patient_info: Dict):
+    def add_patient_info(self, doc: 'Document', patient_info: Dict, visits: List[Dict]):
         """Add patient information section"""
         # Date
         date_para = doc.add_paragraph()
         date_para.add_run(f"Rabat le: {datetime.now().strftime('%d/%m/%Y')}")
         
         # Patient info
-        patient_para = doc.add_paragraph()
-        patient_para.add_run("Soins dentaires effectués pour :")
-        
-        name_para = doc.add_paragraph()
-        name_run = name_para.add_run(patient_info["name"])
+        line_para = doc.add_paragraph()
+        line_para.add_run("Soins dentaires effectués pour : ")
+        name_run = line_para.add_run(patient_info["name"])
         name_run.bold = True
-        
-        if patient_info["phone"]:
-            phone_para = doc.add_paragraph()
-            phone_para.add_run(f"Téléphone: {patient_info['phone']}")
-        
-        if patient_info["national_id"]:
-            id_para = doc.add_paragraph()
-            id_para.add_run(f"Carte Nationale: {patient_info['national_id']}")
-        
-        if patient_info["assurance"]:
-            assurance_para = doc.add_paragraph()
-            assurance_para.add_run(f"Assurance: {patient_info['assurance']}")
-        
+
+        # List each acte on a new line
+        for v in visits:
+            if v.get("treatment"):
+                acte_para = doc.add_paragraph()
+                acte_para.add_run(v["treatment"])
+
         doc.add_paragraph()
     
 
@@ -273,34 +265,40 @@ class InvoiceService:
         total_para = doc.add_paragraph()
         total_para.add_run(f"Montant total: {totals['total']:.2f} DH")
         
-        # Final statement
+        # "Arrêtée ..." directly under total with amount
         final_para = doc.add_paragraph()
-        final_para.add_run("Arrêtée la présente facture à la somme de")
-        final_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        final_para.add_run("Arrêtée la présente facture à la somme de ")
+        final_para.alignment = WD_ALIGN_PARAGRAPH.LEFT
+
+        # Two blank lines
+        doc.add_paragraph()
+        doc.add_paragraph()
         
-        amount_para = doc.add_paragraph()
-        amount_run = amount_para.add_run(f"{totals['total']:.2f} DH")
-        amount_run.bold = True
-        amount_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        
+        # Payment note directly after
         payment_para = doc.add_paragraph()
         payment_para.add_run("Valeur en votre aimable règlement")
-        payment_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        payment_para.alignment = WD_ALIGN_PARAGRAPH.LEFT
         
         doc.add_paragraph()
     
     def add_footer(self, doc: 'Document', doctor_info: Dict):
         """Add footer with doctor signature and details"""
-        # Signature line
+        # Doctor name centered with space for signature below
         signature_para = doc.add_paragraph()
-        signature_para.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+        signature_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
         signature_para.add_run(doctor_info["name"])
+
+        # Space for signature
+        doc.add_paragraph()
+        doc.add_paragraph()
+        doc.add_paragraph()
+        doc.add_paragraph()
         
-        # Tax information
+        # Tax information at the bottom
         tax_para = doc.add_paragraph()
         tax_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
         tax_text = (f"IF {doctor_info['if']} / Taxe professionnelle {doctor_info['taxe_professionnelle']} / "
-                   f"Affiliation CNSS {doctor_info['cnss']} / ICE {doctor_info['ice']}")
+                    f"Affiliation CNSS {doctor_info['cnss']} / ICE {doctor_info['ice']}")
         tax_para.add_run(tax_text)
     
     def convert_to_pdf(self, word_path: str, pdf_path: str = None) -> str:

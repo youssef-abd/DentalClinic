@@ -68,7 +68,7 @@ class LoginWidget(QWidget):
         main_layout.setContentsMargins(50, 50, 50, 50)
         
         # Title
-        title_label = QLabel("DentisteDB")
+        title_label = QLabel("Application de Gestion de Cabinet Dentaire")
         title_label.setAlignment(Qt.AlignCenter)
         title_font = QFont()
         title_font.setPointSize(24)

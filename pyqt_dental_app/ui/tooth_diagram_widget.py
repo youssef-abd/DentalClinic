@@ -16,15 +16,19 @@ class ToothWidget(QWidget):
     
     tooth_clicked = pyqtSignal(int, str)  # tooth_number, current_status
     
-    def __init__(self, tooth_number, status='normal', parent=None):
+    def __init__(self, tooth_number, status='normal', colors=None, parent=None):
         super().__init__(parent)
         self.tooth_number = tooth_number
         self.status = status
         self.is_hovered = False
         self.is_selected = False
+        self.colors = colors if colors is not None else {}
         
-        # Tooth dimensions
-        self.setFixedSize(50, 60)
+        # Tooth dimensions - make canines slightly bigger
+        if tooth_number in [13, 23, 33, 43]:  # Canines
+            self.setFixedSize(60, 70)  # Slightly bigger than normal teeth
+        else:
+            self.setFixedSize(50, 60)
         self.setToolTip(f"Dent #{tooth_number}")
         self.setCursor(Qt.PointingHandCursor)
         
@@ -43,17 +47,7 @@ class ToothWidget(QWidget):
     
     def get_status_color(self):
         """Get color based on tooth status"""
-        colors = {
-            'normal': QColor(229, 231, 235),      # Light gray
-            'carie': QColor(239, 68, 68),         # Red
-            'couronne': QColor(59, 130, 246),     # Blue
-            'bridge': QColor(139, 92, 246),       # Purple
-            'implant': QColor(16, 185, 129),      # Green
-            'extraction': QColor(107, 114, 128),  # Dark gray
-            'traitement': QColor(245, 158, 11),   # Orange
-            'observation': QColor(236, 72, 153)   # Pink
-        }
-        return colors.get(self.status, colors['normal'])
+        return self.colors.get(self.status, self.colors.get('normal', '#E5E7EB'))
     
     def paintEvent(self, event):
         """Custom paint event for realistic tooth representation"""
@@ -61,7 +55,7 @@ class ToothWidget(QWidget):
         painter.setRenderHint(QPainter.Antialiasing)
         
         # Get tooth color
-        base_color = self.get_status_color()
+        base_color = QColor(self.get_status_color())
         
         # Create gradient for 3D effect
         gradient = QLinearGradient(0, 0, 0, self.height())
@@ -170,7 +164,8 @@ class ToothWidget(QWidget):
         # Get position in quadrant (1-8)
         pos = self.tooth_number % 10
         
-        if pos == 4:  # First premolar
+        # Make teeth 25, 35, 15, 45 look like tooth 24 (first premolar)
+        if pos == 4 or self.tooth_number in [25, 35, 15, 45]:  # First premolar or specified teeth
             # Occlusal surface with two cusps
             path.moveTo(width*0.2, height*0.2)
             path.quadTo(width*0.3, height*0.1, width*0.5, height*0.1)
@@ -184,7 +179,7 @@ class ToothWidget(QWidget):
             path.moveTo(width*0.4, height*0.15)
             path.quadTo(width*0.5, height*0.2, width*0.6, height*0.15)
             
-        else:  # Second premolar
+        else:  # Second premolar (pos == 5, but not the specified teeth)
             # More rounded occlusal surface with multiple cusps
             path.moveTo(width*0.15, height*0.25)
             path.quadTo(width*0.3, height*0.1, width*0.5, height*0.1)
@@ -278,6 +273,9 @@ class ToothDiagramWidget(QWidget):
         self.selected_status = 'normal'
         self.tooth_widgets = {}
         
+        # Get colors from tooth_service
+        self.colors = {s['key']: s['color'] for s in self.tooth_service.get_available_statuses()}
+        
         self.init_ui()
         if patient_id:
             self.load_patient_chart(patient_id)
@@ -343,14 +341,14 @@ class ToothDiagramWidget(QWidget):
         # Create teeth 18-11 (right to left) - Upper Right
         self.tooth_widgets = {}
         for tooth_num in range(18, 10, -1):
-            tooth = ToothWidget(tooth_num)
+            tooth = ToothWidget(tooth_num, colors=self.colors)
             tooth.tooth_clicked.connect(self.on_tooth_clicked)
             self.tooth_widgets[tooth_num] = tooth
             upper_layout.addWidget(tooth)
         
         # Create teeth 21-28 (left to right) - Upper Left
         for tooth_num in range(21, 29):
-            tooth = ToothWidget(tooth_num)
+            tooth = ToothWidget(tooth_num, colors=self.colors)
             tooth.tooth_clicked.connect(self.on_tooth_clicked)
             self.tooth_widgets[tooth_num] = tooth
             upper_layout.addWidget(tooth)
@@ -369,14 +367,14 @@ class ToothDiagramWidget(QWidget):
         
         # Create teeth 48-41 (right to left) - Lower Right
         for tooth_num in range(48, 40, -1):
-            tooth = ToothWidget(tooth_num)
+            tooth = ToothWidget(tooth_num, colors=self.colors)
             tooth.tooth_clicked.connect(self.on_tooth_clicked)
             self.tooth_widgets[tooth_num] = tooth
             lower_layout.addWidget(tooth)
         
         # Create teeth 31-38 (left to right) - Lower Left
         for tooth_num in range(31, 39):
-            tooth = ToothWidget(tooth_num)
+            tooth = ToothWidget(tooth_num, colors=self.colors)
             tooth.tooth_clicked.connect(self.on_tooth_clicked)
             self.tooth_widgets[tooth_num] = tooth
             lower_layout.addWidget(tooth)
@@ -431,7 +429,7 @@ class ToothDiagramWidget(QWidget):
             btn.setStyleSheet(f"""
                 QPushButton {{
                     background-color: {status_info['color']};
-                    color: {'white' if status_info['key'] in ['carie', 'bridge', 'extraction'] else 'black'};
+                    color: {'white' if status_info['key'] in ['carie', 'obturation', 'obturation canalaire', 'dent absente', 'tartre'] else 'black'};
                     border: 2px solid #D1D5DB;
                     border-radius: 8px;
                     padding: 6px 12px;

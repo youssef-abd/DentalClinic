@@ -171,11 +171,11 @@ class ToothService:
             {'key': 'normal', 'name': 'Normal', 'color': '#E5E7EB'},
             {'key': 'carie', 'name': 'Carie', 'color': '#EF4444'},
             {'key': 'couronne', 'name': 'Couronne', 'color': '#3B82F6'},
-            {'key': 'bridge', 'name': 'Bridge', 'color': '#8B5CF6'},
+            {'key': 'obturation', 'name': 'Obturation', 'color': '#8B5CF6'},
             {'key': 'implant', 'name': 'Implant', 'color': '#10B981'},
-            {'key': 'extraction', 'name': 'Extraction', 'color': '#6B7280'},
-            {'key': 'traitement', 'name': 'En Traitement', 'color': '#F59E0B'},
-            {'key': 'observation', 'name': 'À Observer', 'color': '#EC4899'}
+            {'key': 'obturation canalaire', 'name': 'Obturation Canalaire', 'color': '#6B7280'},
+            {'key': 'dent absente', 'name': 'Dent Absente', 'color': '#F59E0B'},
+            {'key': 'tartre', 'name': 'Tartre', 'color': '#EC4899'}
         ]
     
     @staticmethod
@@ -185,10 +185,10 @@ class ToothService:
             'normal': '#E5E7EB',
             'carie': '#EF4444',
             'couronne': '#3B82F6',
-            'bridge': '#8B5CF6',
+            'obturation': '#8B5CF6',
             'implant': '#10B981',
-            'extraction': '#6B7280',
-            'traitement': '#F59E0B',
-            'observation': '#EC4899'
+            'obturation canalaire': '#6B7280',
+            'dent absente': '#F59E0B',
+            'tartre': '#EC4899'
         }
         return status_colors.get(status, '#E5E7EB')

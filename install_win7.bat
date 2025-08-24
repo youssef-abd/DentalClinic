@@ -27,30 +27,14 @@ if %errorlevel% neq 0 (
 )
 
 echo Step 2: Installing Windows 7 compatible dependencies...
-echo Installing PyQt5 5.15.2 (Windows 7 compatible)...
-pip install PyQt5==5.15.2
+python -m pip install --upgrade pip
+pip install -r requirements_win7.txt
 if %errorlevel% neq 0 (
-    echo ❌ Error installing PyQt5
+    echo ❌ Error installing dependencies
     echo.
     echo Try installing Visual C++ Redistributable 2015-2019:
-    echo https://aka.ms/vs/16/release/vc_redist.x64.exe
+    echo https://aka.ms/vs/17/release/vc_redist.x64.exe
     echo.
-    pause
-    exit /b 1
-)
-
-echo Installing SQLAlchemy 1.4.46 (Windows 7 compatible)...
-pip install SQLAlchemy==1.4.46
-if %errorlevel% neq 0 (
-    echo ❌ Error installing SQLAlchemy
-    pause
-    exit /b 1
-)
-
-echo Installing Werkzeug 2.3.7 (Windows 7 compatible)...
-pip install Werkzeug==2.3.7
-if %errorlevel% neq 0 (
-    echo ❌ Error installing Werkzeug
     pause
     exit /b 1
 )

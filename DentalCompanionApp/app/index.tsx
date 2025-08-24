@@ -10,35 +10,33 @@ import {
   ActivityIndicator,
   StatusBar,
   RefreshControl,
+  Switch,
 } from 'react-native';
-import { createClient } from '@supabase/supabase-js';
-
-// Use environment variables instead of hardcoded values
-const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
-const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
-
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+import PatientCard from './components/PatientCard';
+import VisitCard from './components/VisitCard';
+import { supabase } from './lib/supabase';
+import * as Haptics from 'expo-haptics';
 
 interface Patient {
   id: number;
   nom: string;
   prenom: string;
-  date_naissance: string;
-  telephone: string;
-  numero_carte_national: string;
-  assurance: string;
-  profession: string;
-  maladie: string;
-  observation: string;
-  xray_photo: string;
+  date_naissance: string | null;
+  telephone: string | null;
+  numero_carte_national?: string | null;
+  assurance: string | null;
+  profession: string | null;
+  maladie?: string | null;
+  observation?: string | null;
+  xray_photo?: string | null;
   created_at: string;
 }
 
 interface Visit {
   id: number;
   date: string;
-  dent: string;
-  acte: string;
+  dent?: string | null;
+  acte?: string | null;
   prix: number;
   paye: number;
   reste: number;
@@ -56,9 +54,10 @@ const DentalCompanionApp = () => {
   const [loading, setLoading] = useState(true);
   
   // Login form state
-  const [email, setEmail] = useState('dentist@test.com');
-  const [password, setPassword] = useState('password123');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [loginLoading, setLoginLoading] = useState(false);
+  const [loginError, setLoginError] = useState<string | null>(null);
   
   // App state
   const [currentView, setCurrentView] = useState<'patients' | 'visits'>('patients');
@@ -70,9 +69,14 @@ const DentalCompanionApp = () => {
   const [patientsLoading, setPatientsLoading] = useState(false);
   const [visitsLoading, setVisitsLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [page, setPage] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [recentOnly, setRecentOnly] = useState(false);
+  const pageSize = 20;
   
   // Cache for better performance
-  const [patientsCache, setPatientsCache] = useState<Patient[] | null>(null);
   const [visitsCache, setVisitsCache] = useState<Record<number, Visit[]>>({});
 
   // Check if user is already logged in
@@ -103,25 +107,29 @@ const DentalCompanionApp = () => {
       Alert.alert('Error', 'Please enter both email and password');
       return;
     }
+    const emailOk = /.+@.+\..+/.test(email.trim());
+    if (!emailOk) {
+      setLoginError('Enter a valid email address');
+      return;
+    }
 
     setLoginLoading(true);
+    setLoginError(null);
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
         email: email.trim(),
-        password: password,
+        password,
       });
-
       if (error) {
-        Alert.alert('Login Error', error.message);
+        setLoginError(error.message || 'Invalid email or password');
+      } else if (data?.user) {
+        setUser({ id: data.user.id, email: data.user.email || '' });
+        await fetchPatients(true);
       } else {
-        setUser(data.user ? {
-          id: data.user.id,
-          email: data.user.email || ''
-        } : null);
-        fetchPatients();
+        setLoginError('Login failed. Please try again.');
       }
     } catch (error) {
-      Alert.alert('Error', 'Failed to connect. Please check your internet connection.');
+      setLoginError('Unexpected error. Please try again.');
     } finally {
       setLoginLoading(false);
     }
@@ -137,47 +145,71 @@ const DentalCompanionApp = () => {
       setVisits([]);
       setSelectedPatient(null);
       setCurrentView('patients');
-      setPatientsCache(null);
-      setVisitsCache({});
+            setVisitsCache({});
+      setEmail('');
+      setPassword('');
     } catch (error) {
       Alert.alert('Error', 'Failed to logout');
     }
   };
 
   // Fetch patients from Supabase
-  const fetchPatients = async (useCache = true) => {
-    if (useCache && patientsCache) {
-      setPatients(patientsCache);
-      setFilteredPatients(patientsCache);
-      return;
+  const fetchPatients = async (reset = false) => {
+    if (reset) {
+      setPage(0);
+      setHasMore(true);
     }
 
-    setPatientsLoading(true);
+    const currentPage = reset ? 0 : page;
+    if (reset) {
+      setPatientsLoading(true);
+    } else {
+      setLoadingMore(true);
+    }
+    setErrorMsg(null);
+
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('patients')
-        .select('*')
+        .select('id, nom, prenom, telephone, date_naissance, profession, assurance, created_at')
         .order('created_at', { ascending: false });
 
-      if (error) {
-        throw error;
+      const q = searchQuery.trim();
+      if (q) {
+        query = query.or(
+          `nom.ilike.%${q}%,prenom.ilike.%${q}%,telephone.ilike.%${q}%`
+        );
+      }
+      if (recentOnly) {
+        const d = new Date();
+        d.setDate(d.getDate() - 30);
+        query = query.gte('created_at', d.toISOString());
       }
 
-      const patientsData = data || [];
-      setPatients(patientsData);
-      setFilteredPatients(patientsData);
-      setPatientsCache(patientsData);
-    } catch (error) {
-      Alert.alert(
-        'Error Loading Patients',
-        'Failed to load patient data. Please check your connection and try again.',
-        [
-          { text: 'Retry', onPress: () => fetchPatients(false) },
-          { text: 'Cancel', style: 'cancel' }
-        ]
-      );
+      const from = currentPage * pageSize;
+      const to = from + pageSize - 1;
+
+      const { data, error } = await query.range(from, to);
+
+      if (error) throw error;
+
+      const batch = data || [];
+      if (reset) {
+        setPatients(batch);
+        setFilteredPatients(batch);
+      } else {
+        setPatients(prev => [...prev, ...batch]);
+        setFilteredPatients(prev => [...prev, ...batch]);
+      }
+
+      const more = batch.length === pageSize;
+      setHasMore(more);
+      setPage(currentPage + (more ? 1 : 0));
+    } catch (error: any) {
+      setErrorMsg('Failed to load patient data. Pull to retry.');
     } finally {
       setPatientsLoading(false);
+      setLoadingMore(false);
     }
   };
 
@@ -189,16 +221,15 @@ const DentalCompanionApp = () => {
     }
 
     setVisitsLoading(true);
+    setErrorMsg(null);
     try {
       const { data, error } = await supabase
         .from('visits')
-        .select('*')
+        .select('id, date, dent, acte, prix, paye, reste, patient_id')
         .eq('patient_id', patientId)
         .order('date', { ascending: false });
 
-      if (error) {
-        throw error;
-      }
+      if (error) throw error;
 
       const visitsData = data || [];
       setVisits(visitsData);
@@ -206,33 +237,24 @@ const DentalCompanionApp = () => {
         ...prev,
         [patientId]: visitsData
       }));
-    } catch (error) {
-      Alert.alert(
-        'Error Loading Visits',
-        'Failed to load visit history. Please try again.',
-        [
-          { text: 'Retry', onPress: () => fetchVisits(patientId, false) },
-          { text: 'Cancel', style: 'cancel' }
-        ]
-      );
+    } catch (error: any) {
+      setErrorMsg('Failed to load visit history. Pull to retry.');
     } finally {
       setVisitsLoading(false);
     }
   };
 
   // Handle search
+  // Debounced search -> server-side
+  useEffect(() => {
+    const id = setTimeout(() => {
+      fetchPatients(true);
+    }, 300);
+    return () => clearTimeout(id);
+  }, [searchQuery]);
+
   const handleSearch = (query: string) => {
     setSearchQuery(query);
-    if (!query.trim()) {
-      setFilteredPatients(patients);
-      return;
-    }
-
-    const filtered = patients.filter(patient => {
-      const fullName = `${patient.nom} ${patient.prenom}`.toLowerCase();
-      return fullName.includes(query.toLowerCase());
-    });
-    setFilteredPatients(filtered);
   };
 
   // Handle patient selection
@@ -245,109 +267,24 @@ const DentalCompanionApp = () => {
   // Handle refresh
   const handleRefresh = async () => {
     setRefreshing(true);
+    try { await Haptics.selectionAsync(); } catch {}
     if (currentView === 'patients') {
-      await fetchPatients(false);
+      await fetchPatients(true);
     } else if (selectedPatient) {
       await fetchVisits(selectedPatient.id, false);
     }
     setRefreshing(false);
   };
 
-  // Format date
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
-  };
-
-  // Format currency
-  const formatCurrency = (amount: number) => {
-    return `${amount?.toFixed(2) || '0.00'} MAD`;
-  };
-
+  
   // Render patient item
   const renderPatientItem = ({ item }: { item: Patient }) => (
-    <TouchableOpacity
-      style={styles.patientCard}
-      onPress={() => selectPatient(item)}
-    >
-      <View style={styles.patientHeader}>
-        <Text style={styles.patientName}>
-          {item.nom} {item.prenom}
-        </Text>
-        <Text style={styles.patientDate}>
-          {formatDate(item.created_at)}
-        </Text>
-      </View>
-      <View style={styles.patientDetails}>
-        <Text style={styles.patientInfo}>
-          📞 {item.telephone || 'N/A'}
-        </Text>
-        <Text style={styles.patientInfo}>
-          🎂 {item.date_naissance ? formatDate(item.date_naissance) : 'N/A'}
-        </Text>
-      </View>
-      {item.profession && (
-        <Text style={styles.patientProfession}>
-          💼 {item.profession}
-        </Text>
-      )}
-      {item.assurance && (
-        <Text style={styles.patientInsurance}>
-          🏥 {item.assurance}
-        </Text>
-      )}
-    </TouchableOpacity>
+    <PatientCard patient={item} onPress={() => selectPatient(item)} />
   );
 
   // Render visit item
   const renderVisitItem = ({ item }: { item: Visit }) => (
-    <View style={styles.visitCard}>
-      <View style={styles.visitHeader}>
-        <Text style={styles.visitDate}>
-          {formatDate(item.date)}
-        </Text>
-        {item.dent && (
-          <Text style={styles.toothNumber}>
-            🦷 Tooth #{item.dent}
-          </Text>
-        )}
-      </View>
-      
-      {item.acte && (
-        <Text style={styles.treatmentDescription}>
-          {item.acte}
-        </Text>
-      )}
-      
-      <View style={styles.visitPricing}>
-        <View style={styles.priceRow}>
-          <Text style={styles.priceLabel}>Total:</Text>
-          <Text style={styles.priceValue}>
-            {formatCurrency(item.prix)}
-          </Text>
-        </View>
-        
-        <View style={styles.priceRow}>
-          <Text style={styles.priceLabel}>Paid:</Text>
-          <Text style={[styles.priceValue, styles.paidAmount]}>
-            {formatCurrency(item.paye)}
-          </Text>
-        </View>
-        
-        {item.reste > 0 && (
-          <View style={styles.priceRow}>
-            <Text style={styles.priceLabel}>Remaining:</Text>
-            <Text style={[styles.priceValue, styles.remainingAmount]}>
-              {formatCurrency(item.reste)}
-            </Text>
-          </View>
-        )}
-      </View>
-    </View>
+    <VisitCard visit={item} />
   );
 
   // Loading screen
@@ -373,9 +310,10 @@ const DentalCompanionApp = () => {
             <TextInput
               style={styles.input}
               placeholder="Email"
+              placeholderTextColor="#d0d0d0"
+              underlineColorAndroid="transparent"
               value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
+              onChangeText={(t) => { setEmail(t); setLoginError(null); }}
               autoCapitalize="none"
               editable={!loginLoading}
             />
@@ -383,8 +321,10 @@ const DentalCompanionApp = () => {
             <TextInput
               style={styles.input}
               placeholder="Password"
+              placeholderTextColor="#d0d0d0"
+              underlineColorAndroid="transparent"
               value={password}
-              onChangeText={setPassword}
+              onChangeText={(t) => { setPassword(t); setLoginError(null); }}
               secureTextEntry
               editable={!loginLoading}
             />
@@ -400,6 +340,9 @@ const DentalCompanionApp = () => {
                 <Text style={styles.loginButtonText}>Login</Text>
               )}
             </TouchableOpacity>
+            {loginError ? (
+              <Text style={[styles.errorText, { marginTop: 10 }]}>{loginError}</Text>
+            ) : null}
           </View>
         </View>
       </View>
@@ -444,18 +387,57 @@ const DentalCompanionApp = () => {
       {currentView === 'patients' ? (
         <View style={styles.content}>
           {/* Search Bar */}
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search patients by name..."
-            value={searchQuery}
-            onChangeText={handleSearch}
-          />
+          <View style={styles.searchRow}>
+            <TextInput
+              style={[styles.searchInput, { flex: 1 }]}
+              placeholder="Search patients by name or phone..."
+              value={searchQuery}
+              onChangeText={handleSearch}
+            />
+            {!!searchQuery && (
+              <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityLabel="Clear search"
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                onPress={() => setSearchQuery('')}
+                style={styles.clearBtn}
+              >
+                <Text style={styles.clearBtnText}>✕</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+          <View style={styles.filterRow}>
+            <Text style={styles.filterLabel}>Recent (last 30 days)</Text>
+            <Switch
+              value={recentOnly}
+              onValueChange={(v) => { setRecentOnly(v); fetchPatients(true); }}
+            />
+          </View>
           
           {/* Patients List */}
+          {errorMsg && (
+            <View style={styles.errorBanner}>
+              <Text style={styles.errorText}>{errorMsg}</Text>
+              <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityLabel="Retry"
+                onPress={() => fetchPatients(true)}
+                style={styles.retryBtn}
+              >
+                <Text style={styles.retryText}>Retry</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
           {patientsLoading ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color="#2196F3" />
-              <Text style={styles.loadingText}>Loading patients...</Text>
+            <View style={styles.listContainer}>
+              {Array.from({ length: 6 }).map((_, i) => (
+                <View key={i} style={styles.skelCard}>
+                  <View style={[styles.skelBar, { width: '60%' }]} />
+                  <View style={[styles.skelBar, { width: '40%' }]} />
+                  <View style={[styles.skelBar, { width: '80%' }]} />
+                </View>
+              ))}
             </View>
           ) : (
             <FlatList
@@ -477,16 +459,46 @@ const DentalCompanionApp = () => {
                   </Text>
                 </View>
               }
+              initialNumToRender={12}
+              maxToRenderPerBatch={24}
+              windowSize={7}
+              removeClippedSubviews
+              getItemLayout={(data, index) => ({ length: 92, offset: 92 * index, index })}
+              onEndReachedThreshold={0.5}
+              onEndReached={() => {
+                if (!patientsLoading && !loadingMore && hasMore) {
+                  fetchPatients(false);
+                }
+              }}
             />
           )}
         </View>
       ) : (
         <View style={styles.content}>
           {/* Visits List */}
+          {errorMsg && (
+            <View style={styles.errorBanner}>
+              <Text style={styles.errorText}>{errorMsg}</Text>
+              <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityLabel="Retry"
+                onPress={() => selectedPatient ? fetchVisits(selectedPatient.id, false) : null}
+                style={styles.retryBtn}
+              >
+                <Text style={styles.retryText}>Retry</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
           {visitsLoading ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color="#2196F3" />
-              <Text style={styles.loadingText}>Loading visits...</Text>
+            <View style={styles.listContainer}>
+              {Array.from({ length: 4 }).map((_, i) => (
+                <View key={i} style={styles.skelCard}>
+                  <View style={[styles.skelBar, { width: '50%' }]} />
+                  <View style={[styles.skelBar, { width: '30%' }]} />
+                  <View style={[styles.skelBar, { width: '70%' }]} />
+                </View>
+              ))}
             </View>
           ) : (
             <FlatList
@@ -506,6 +518,11 @@ const DentalCompanionApp = () => {
                   <Text style={styles.emptyText}>No visits found for this patient</Text>
                 </View>
               }
+              initialNumToRender={10}
+              maxToRenderPerBatch={20}
+              windowSize={6}
+              removeClippedSubviews
+              getItemLayout={(data, index) => ({ length: 120, offset: 120 * index, index })}
             />
           )}
         </View>
@@ -556,13 +573,13 @@ const styles = StyleSheet.create({
     maxWidth: 300,
   },
   input: {
-    backgroundColor: 'white',
+    backgroundColor: 'transparent',
     borderRadius: 8,
     padding: 15,
     marginBottom: 15,
     fontSize: 16,
-    borderWidth: 1,
-    borderColor: '#ddd',
+    borderWidth: 0,
+    borderColor: 'transparent',
   },
   loginButton: {
     backgroundColor: '#2196F3',
@@ -631,116 +648,37 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     paddingBottom: 20,
   },
-  
-  // Patient Card Styles
-  patientCard: {
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 15,
-    marginBottom: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  patientHeader: {
+  searchRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginHorizontal: 15,
   },
-  patientName: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-    flex: 1,
-  },
-  patientDate: {
-    fontSize: 12,
-    color: '#666',
-  },
-  patientDetails: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 5,
-  },
-  patientInfo: {
-    fontSize: 14,
-    color: '#555',
-    flex: 1,
-  },
-  patientProfession: {
-    fontSize: 14,
-    color: '#666',
-    marginTop: 5,
-  },
-  patientInsurance: {
-    fontSize: 14,
-    color: '#666',
-    marginTop: 2,
-  },
-  
-  // Visit Card Styles
-  visitCard: {
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 15,
-    marginBottom: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  visitHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  clearBtn: {
+    marginLeft: 8,
+    backgroundColor: '#eee',
+    borderRadius: 16,
+    width: 32,
+    height: 32,
     alignItems: 'center',
-    marginBottom: 10,
+    justifyContent: 'center',
   },
-  visitDate: {
+  clearBtnText: {
     fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
+    color: '#666',
   },
-  toothNumber: {
-    fontSize: 14,
-    color: '#2196F3',
-    fontWeight: '500',
-  },
-  treatmentDescription: {
-    fontSize: 15,
-    color: '#555',
-    marginBottom: 12,
-    lineHeight: 20,
-  },
-  visitPricing: {
-    borderTopWidth: 1,
-    borderTopColor: '#eee',
-    paddingTop: 10,
-  },
-  priceRow: {
+  filterRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 5,
+    justifyContent: 'space-between',
+    marginHorizontal: 15,
+    marginTop: 8,
   },
-  priceLabel: {
+  filterLabel: {
     fontSize: 14,
     color: '#666',
   },
-  priceValue: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
-  },
-  paidAmount: {
-    color: '#4CAF50',
-  },
-  remainingAmount: {
-    color: '#F44336',
-  },
+  
+  // Removed inline card styles (moved to components)
   
   // Empty State
   emptyContainer: {
@@ -753,6 +691,44 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#666',
     textAlign: 'center',
+  },
+  errorBanner: {
+    backgroundColor: '#ffefef',
+    borderColor: '#f5c6cb',
+    borderWidth: 1,
+    padding: 10,
+    marginHorizontal: 15,
+    marginTop: 10,
+    borderRadius: 8,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  errorText: {
+    color: '#a94442',
+    fontSize: 14,
+  },
+  retryBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: '#f5c6cb',
+    borderRadius: 6,
+  },
+  retryText: {
+    color: '#7a1c1c',
+    fontWeight: '600',
+  },
+  skelCard: {
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 15,
+    marginBottom: 10,
+  },
+  skelBar: {
+    height: 12,
+    backgroundColor: '#eee',
+    borderRadius: 8,
+    marginBottom: 8,
   },
 });
 

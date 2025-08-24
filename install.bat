@@ -5,7 +5,8 @@ echo ========================================
 echo.
 
 echo Step 1: Installing Python dependencies...
-pip install -r requirements.txt
+python -m pip install --upgrade pip
+pip install -r pyqt_dental_app\requirements.txt
 if %errorlevel% neq 0 (
     echo ❌ Error installing dependencies
     pause
