@@ -8,14 +8,22 @@ import {
   FlatList,
   Alert,
   ActivityIndicator,
-  StatusBar,
   RefreshControl,
   Switch,
+  Keyboard,
+  TouchableWithoutFeedback,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
 import PatientCard from './components/PatientCard';
 import VisitCard from './components/VisitCard';
-import { supabase } from './lib/supabase';
+import { createClient } from '@supabase/supabase-js';
 import * as Haptics from 'expo-haptics';
+
+const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL ?? '';
+const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '';
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 interface Patient {
   id: number;
@@ -58,6 +66,8 @@ const DentalCompanionApp = () => {
   const [password, setPassword] = useState('');
   const [loginLoading, setLoginLoading] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
+  const [emailFocused, setEmailFocused] = useState(false);
+  const [passwordFocused, setPasswordFocused] = useState(false);
   
   // App state
   const [currentView, setCurrentView] = useState<'patients' | 'visits'>('patients');
@@ -300,39 +310,53 @@ const DentalCompanionApp = () => {
   // Login screen
   if (!user) {
     return (
-      <View style={styles.container}>
-        <StatusBar barStyle="dark-content" backgroundColor="#f5f5f5" />
-        <View style={styles.loginContainer}>
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+        <View style={styles.loginScreen}>
+          <StatusBar style="light" />
+          <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+            <View style={styles.loginContainer}>
           <Text style={styles.title}>🦷 Dental Companion</Text>
           <Text style={styles.subtitle}>Mobile App for Dentists</Text>
           
           <View style={styles.loginForm}>
+            <Text style={styles.inputLabel}>Email</Text>
             <TextInput
-              style={styles.input}
-              placeholder="Email"
-              placeholderTextColor="#d0d0d0"
+              style={[styles.input, emailFocused && styles.inputFocused]}
+              placeholder="email@example.com"
+              placeholderTextColor="#9CA3AF"
               underlineColorAndroid="transparent"
               value={email}
               onChangeText={(t) => { setEmail(t); setLoginError(null); }}
               autoCapitalize="none"
+              keyboardType="email-address"
               editable={!loginLoading}
+              onFocus={() => setEmailFocused(true)}
+              onBlur={() => setEmailFocused(false)}
+              selectionColor="#60A5FA"
             />
             
+            <Text style={styles.inputLabel}>Password</Text>
             <TextInput
-              style={styles.input}
-              placeholder="Password"
-              placeholderTextColor="#d0d0d0"
+              style={[styles.input, passwordFocused && styles.inputFocused]}
+              placeholder="••••••••"
+              placeholderTextColor="#9CA3AF"
               underlineColorAndroid="transparent"
               value={password}
               onChangeText={(t) => { setPassword(t); setLoginError(null); }}
               secureTextEntry
               editable={!loginLoading}
+              onFocus={() => setPasswordFocused(true)}
+              onBlur={() => setPasswordFocused(false)}
+              selectionColor="#60A5FA"
             />
             
             <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel="Login"
               style={[styles.loginButton, loginLoading && styles.disabledButton]}
               onPress={handleLogin}
               disabled={loginLoading}
+              activeOpacity={0.8}
             >
               {loginLoading ? (
                 <ActivityIndicator color="white" />
@@ -344,15 +368,17 @@ const DentalCompanionApp = () => {
               <Text style={[styles.errorText, { marginTop: 10 }]}>{loginError}</Text>
             ) : null}
           </View>
+            </View>
+          </KeyboardAvoidingView>
         </View>
-      </View>
+      </TouchableWithoutFeedback>
     );
   }
 
   // Main app screens
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#2196F3" />
+      <StatusBar style="light" />
       
       {/* Header */}
       <View style={styles.header}>
@@ -564,7 +590,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 16,
-    color: '#666',
+    color: '#CBD5E1',
     marginBottom: 40,
     textAlign: 'center',
   },
@@ -572,14 +598,33 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 300,
   },
+  inputLabel: {
+    color: '#CBD5E1',
+    fontSize: 14,
+    marginBottom: 6,
+    marginLeft: 2,
+  },
+  inputFocused: {
+    borderColor: '#60A5FA',
+    shadowColor: '#60A5FA',
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 2,
+  },
+  loginScreen: {
+    flex: 1,
+    backgroundColor: '#0f172a',
+  },
   input: {
-    backgroundColor: 'transparent',
-    borderRadius: 8,
-    padding: 15,
-    marginBottom: 15,
+    backgroundColor: '#111827',
+    borderRadius: 10,
+    padding: 14,
+    marginBottom: 16,
     fontSize: 16,
-    borderWidth: 0,
-    borderColor: 'transparent',
+    borderWidth: 1,
+    borderColor: '#374151',
+    color: '#F9FAFB',
   },
   loginButton: {
     backgroundColor: '#2196F3',

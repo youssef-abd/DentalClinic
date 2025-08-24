@@ -1,3 +1,40 @@
+# Exclude build caches and outputs
 android/.gradle
 android/build
+ios/Pods
+ios/build
+build
+web-build
+dist
+.out
+
+# Dependencies (installed on EAS builder)
 node_modules
+
+# Local Expo/Metro caches
+.expo
+.expo-shared
+.cache
+.tmp
+.temp
+
+# VCS and IDE
+.git
+.vscode
+.idea
+.DS_Store
+
+# Large binaries and archives (not needed for build)
+*.log
+*.zip
+*.tar
+*.gz
+*.7z
+*.apk
+*.aab
+
+# Example or unused app folders
+app-example/
+
+# Any other local artifacts
+coverage
